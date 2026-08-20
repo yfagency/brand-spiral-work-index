@@ -8,7 +8,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,300..900;1,300..900&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0A0A0B;--ink:#F3F0E9;--dim:rgba(243,240,233,.44);--line:rgba(243,240,233,.10)}
+:root{--bg:#0A0A0B;--ink:#F3F0E9;--dim:rgba(243,240,233,.44);--line:rgba(243,240,233,.10);
+  --barH:146px}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
   font-family:"Inter Tight",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
@@ -22,7 +23,12 @@ html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
 .rail.r{border-left:1px solid var(--line)}
 .rail::-webkit-scrollbar{width:3px}.rail::-webkit-scrollbar-thumb{background:var(--line)}
 .stage{position:relative;overflow:hidden;min-height:0}
-svg{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair}
+/* A wrapper owns the visible area and the SVG fills it at 100%/100%.
+   Setting insets on the <svg> itself doesn't work: with a viewBox and no
+   width/height it falls back to its intrinsic 1:1 ratio and computes its own
+   height from its width, which is what buried the lower half of the spiral. */
+.field{position:absolute;left:0;right:0;top:0;bottom:var(--barH)}
+svg{width:100%;height:100%;display:block;cursor:crosshair}
 
 .eyebrow{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
 h1{font-weight:800;font-size:29px;letter-spacing:-.045em;line-height:1.04;margin:8px 0 0}
@@ -39,15 +45,30 @@ h1 em{display:block;font-family:"Instrument Serif",serif;font-style:italic;font-
 .stat i{display:block;font-style:normal;font-size:8.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);margin-top:6px;line-height:1.4}
 .stat.wide{grid-column:1/-1}.stat.wide b{color:#D8FF3E;font-size:26px}
 
-.cli{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;width:100%;
-  padding:6px 0;cursor:pointer;border:0;background:none;font:inherit;text-align:left;
-  color:var(--dim);transition:color .22s,padding-left .3s cubic-bezier(.16,1,.3,1)}
-.cli:hover,.cli.on{color:var(--ink);padding-left:5px}
+/* Selection has to be unmistakable: a rule in the partner's own colour grows
+   down the left edge, the row lifts on a tint, and the name itself takes the
+   accent. Hover is a preview of the same thing at half strength. */
+.cli{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+  width:100%;padding:6px 0 6px 11px;cursor:pointer;border:0;background:none;font:inherit;
+  text-align:left;color:var(--dim);border-radius:2px;
+  transition:color .22s,padding-left .3s cubic-bezier(.16,1,.3,1),background .25s}
+.cli::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:2px;border-radius:2px;
+  background:currentColor;opacity:0;transform:scaleY(.25);transform-origin:center;
+  transition:opacity .25s,transform .4s cubic-bezier(.16,1,.3,1)}
+.cli:hover::before{opacity:.5;transform:scaleY(.8)}
+.cli.on::before{opacity:1;transform:scaleY(1)}
+.cli:hover{color:var(--ink);padding-left:14px}
+.cli.on{color:var(--ink);padding-left:14px;
+  background:linear-gradient(90deg,rgba(243,240,233,.07),rgba(243,240,233,0) 78%)}
 .cli s{text-decoration:none;font-size:12.5px;font-weight:500;letter-spacing:-.012em;color:var(--ink);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .25s}
+.cli.on s{color:currentColor}
 .cli u{text-decoration:none;font-family:"JetBrains Mono",monospace;font-size:10px;opacity:.55}
+.cli.on u{opacity:1;color:currentColor}
 .cli .bar{grid-column:1/-1;height:2px;background:var(--line);border-radius:2px;margin-top:3px}
-.cli .bar i{display:block;height:2px;border-radius:2px;background:currentColor;opacity:.6}
+.cli .bar i{display:block;height:2px;border-radius:2px;background:currentColor;opacity:.6;
+  transition:opacity .25s}
+.cli.on .bar i{opacity:1;box-shadow:0 0 8px currentColor}
 .vtag{font-size:8px;letter-spacing:.14em;text-transform:uppercase;padding:2px 5px;border-radius:2px;
   background:rgba(167,139,250,.16);color:#A78BFA;margin-left:5px;vertical-align:1px}
 
@@ -55,6 +76,16 @@ h1 em{display:block;font-family:"Instrument Serif",serif;font-style:italic;font-
   transition:opacity .16s;white-space:nowrap;padding:7px 10px;background:rgba(10,10,11,.93);
   border:1px solid var(--line);border-radius:3px;backdrop-filter:blur(8px);max-width:340px}
 .tip.on{opacity:1}
+
+/* the field opens empty, so say what to do — then get out of the way */
+.hint{position:absolute;left:50%;top:calc((100% - var(--barH)) / 2);
+  transform:translate(-50%,-50%);z-index:14;
+  display:flex;flex-direction:column;align-items:center;gap:11px;pointer-events:none;
+  font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:rgba(243,240,233,.4);
+  transition:opacity .6s}
+.hint i{font-style:normal;font-size:15px;animation:nudge 1.9s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:translateY(0);opacity:.5}50%{transform:translateY(5px);opacity:1}}
+.hint.gone{opacity:0}
 .tip b{display:block;font-size:12px;font-weight:600;letter-spacing:-.01em;overflow:hidden;
   text-overflow:ellipsis;max-width:320px}
 .tip i{display:block;font-style:normal;font-family:"JetBrains Mono",monospace;font-size:9px;
@@ -79,19 +110,97 @@ h1 em{display:block;font-family:"Instrument Serif",serif;font-style:italic;font-
 .d-list div{display:flex;gap:8px;padding:2.5px 0;font-size:11px}
 .d-list span.y{font-family:"JetBrains Mono",monospace;opacity:.45;font-size:9.5px;flex:none;width:26px}
 
-.controls{position:absolute;left:0;right:0;bottom:0;padding:16px 26px 20px;z-index:15;
-  display:flex;flex-direction:column;gap:12px;
-  background:linear-gradient(transparent,rgba(10,10,11,.94) 40%)}
+/* tactics: the actual moves made, each carrying its solution's colour */
+.tacs{margin-top:2px}
+.tacs em{display:block;font-style:normal;font-size:8.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:rgba(243,240,233,.34);margin-bottom:7px}
+.tacs .src{font-family:"JetBrains Mono",monospace;letter-spacing:.06em;opacity:.7}
+.tac{display:inline-flex;align-items:center;font-size:10.5px;letter-spacing:-.005em;
+  padding:5px 9px 5px 8px;margin:0 4px 4px 0;border-radius:2px;color:var(--ink);
+  background:rgba(243,240,233,.05);border-left:2px solid var(--tc)}
+
+/* the pinned record: a table, because internally that's what it is */
+.recs{margin-top:12px;border-top:1px solid var(--line)}
+.rec{display:grid;grid-template-columns:74px 1fr;gap:10px;padding:6.5px 0;
+  border-bottom:1px solid rgba(243,240,233,.05);font-size:11px;align-items:baseline}
+.rec span{font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(243,240,233,.34)}
+.rec b{font-weight:500;color:var(--ink)}
+.rec .src{font-family:"JetBrains Mono",monospace;font-size:8.5px;color:rgba(243,240,233,.34);
+  margin-left:4px;letter-spacing:.06em}
+.gaps{margin-top:10px;padding:9px 11px;border-radius:3px;
+  background:rgba(255,74,28,.07);border:1px solid rgba(255,74,28,.2)}
+.gaps em{display:block;font-style:normal;font-size:8.5px;letter-spacing:.18em;
+  text-transform:uppercase;color:#FF7A55;margin-bottom:5px}
+.gaps span{display:block;font-size:10.5px;color:rgba(243,240,233,.6);line-height:1.5}
+.unpin{margin-top:11px;font:inherit;font-size:9px;letter-spacing:.17em;text-transform:uppercase;
+  color:var(--dim);background:none;border:1px solid var(--line);border-radius:100px;
+  padding:7px 13px;cursor:pointer;transition:color .2s,background .2s,border-color .2s}
+.unpin:hover{color:#0A0A0B;background:var(--ink);border-color:var(--ink)}
+
+/* =========================================================================
+   THE BAR
+   A panel, not a gradient fade — it has a hairline top edge and an opaque
+   ground, so the drawing above it is never half-buried. Two tiers: transport
+   on top (mode, timeline, playback, view), channels underneath.
+   ========================================================================= */
+.controls{position:absolute;left:0;right:0;bottom:0;z-index:22;
+  padding:0 24px;display:flex;flex-direction:column;gap:0;
+  background:rgba(9,9,10,.97);border-top:1px solid var(--line);
+  backdrop-filter:blur(14px)}
 .row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tier{display:flex;align-items:center;gap:16px;padding:11px 0}
+.tier+.tier{border-top:1px solid rgba(243,240,233,.055)}
+.grp{display:flex;align-items:center;gap:6px}
+.glab{font-size:8px;letter-spacing:.2em;text-transform:uppercase;color:rgba(243,240,233,.26);
+  white-space:nowrap;margin-right:2px}
+.vdiv{width:1px;align-self:stretch;background:rgba(243,240,233,.09);margin:0 2px}
+.spacer{flex:1}
+
+/* channel strip: a colour bar per solution that grows when it's live, with its
+   own project count. Reads as an instrument, which is the point. */
+.chan{display:flex;gap:3px;flex:1;min-width:0}
+.ch{flex:1;min-width:0;background:none;border:0;padding:0;cursor:pointer;text-align:left;
+  display:flex;flex-direction:column;gap:6px}
+.ch i{display:block;height:3px;border-radius:2px;background:var(--c);opacity:.28;
+  transition:opacity .25s,height .3s cubic-bezier(.16,1,.3,1),box-shadow .3s}
+.ch b{display:flex;align-items:baseline;gap:5px;min-width:0}
+.ch span{font-size:8.5px;font-weight:500;letter-spacing:.11em;text-transform:uppercase;
+  color:rgba(243,240,233,.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:color .25s}
+.ch u{text-decoration:none;font-family:"JetBrains Mono",monospace;font-size:8.5px;
+  color:rgba(243,240,233,.22);transition:color .25s}
+.ch:hover i{opacity:.6}
+.ch:hover span{color:rgba(243,240,233,.75)}
+.ch.on i{opacity:1;height:7px;box-shadow:0 0 12px var(--c)}
+.ch.on span{color:var(--c)}
+.ch.on u{color:var(--c)}
 .btn{font:inherit;font-size:9px;letter-spacing:.17em;text-transform:uppercase;color:var(--dim);
   background:none;border:1px solid var(--line);border-radius:100px;padding:7px 13px;cursor:pointer;
   transition:color .22s,border-color .22s,background .22s;white-space:nowrap}
 .btn:hover,.btn.on{color:var(--bg);background:var(--ink);border-color:var(--ink)}
+/* An active filter becomes a solid pill in its own colour — you can't miss
+   which of the seven you're inside. Hover just outlines it. */
 .lg{display:flex;align-items:center;gap:6px;font:inherit;font-size:9px;letter-spacing:.13em;
-  text-transform:uppercase;background:none;border:0;padding:3px 1px;cursor:pointer;
-  color:rgba(243,240,233,.38);transition:color .22s}
-.lg:hover,.lg.on{color:var(--ink)}
-.lg s{width:8px;height:8px;border-radius:50%;background:currentColor;text-decoration:none;flex:none}
+  text-transform:uppercase;background:none;cursor:pointer;color:rgba(243,240,233,.38);
+  border:1px solid transparent;border-radius:100px;padding:5px 11px;
+  transition:color .22s,background .22s,border-color .22s}
+.lg:hover{color:var(--ink);border-color:rgba(243,240,233,.22)}
+.lg s{width:8px;height:8px;border-radius:50%;background:currentColor;text-decoration:none;flex:none;
+  transition:background .22s}
+.lg.on{background:var(--c);border-color:var(--c);color:#0A0A0B}
+.lg.on s{background:#0A0A0B}
+
+/* what's currently narrowing the view, and how to let go of it */
+.fstate{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:20px}
+.fstate em{font-style:normal;font-size:9px;letter-spacing:.17em;text-transform:uppercase;
+  color:rgba(243,240,233,.3)}
+.fchip{display:inline-flex;align-items:center;gap:7px;font-size:9px;letter-spacing:.13em;
+  text-transform:uppercase;padding:4px 9px;border-radius:100px;cursor:pointer;
+  border:1px solid var(--fc,var(--line));color:var(--fc,var(--ink));background:none;font:inherit;
+  transition:background .2s,color .2s}
+.fchip:hover{background:var(--fc,var(--ink));color:#0A0A0B}
+.fchip i{font-style:normal;font-size:11px;line-height:1;opacity:.7}
+.fcount{font-family:"JetBrains Mono",monospace;font-size:9.5px;color:rgba(243,240,233,.42)}
 .scrub{display:flex;align-items:center;gap:11px;flex:1;min-width:220px}
 .yr{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--dim);width:32px}
 input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:2px;border-radius:2px;
@@ -99,6 +208,38 @@ input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:2px;bord
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:var(--ink)}
 input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radius:50%;background:var(--ink)}
 .caveat{font-size:9px;letter-spacing:.05em;color:rgba(243,240,233,.3);line-height:1.5}
+
+/* ---------- list view ----------
+   Not a lesser version — the accessible one. Native <details> so it's
+   keyboard-navigable and crawlable without a line of JS, ordered by depth of
+   relationship so it makes the same argument the spiral does. */
+.listview{position:absolute;inset:0;z-index:16;background:var(--bg);overflow-y:auto;
+  padding:26px 30px calc(var(--barH) + 30px);display:none}
+.listview.on{display:block}
+.listview::-webkit-scrollbar{width:4px}.listview::-webkit-scrollbar-thumb{background:var(--line)}
+.lhead{display:grid;grid-template-columns:210px 62px 1fr;gap:18px;padding-bottom:9px;
+  border-bottom:1px solid var(--line);margin-bottom:4px;
+  font-size:8.5px;letter-spacing:.2em;text-transform:uppercase;color:rgba(243,240,233,.3)}
+details.lrow{border-bottom:1px solid var(--line)}
+details.lrow summary{display:grid;grid-template-columns:210px 62px 1fr;gap:18px;align-items:center;
+  padding:11px 0;cursor:pointer;list-style:none;transition:padding-left .3s cubic-bezier(.16,1,.3,1)}
+details.lrow summary::-webkit-details-marker{display:none}
+details.lrow summary:hover{padding-left:5px}
+details.lrow[open] summary{padding-bottom:6px}
+.lname{font-size:13px;font-weight:600;letter-spacing:-.012em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.lnum{font-family:"JetBrains Mono",monospace;font-size:10px;color:var(--dim)}
+.ltl{position:relative;height:16px}
+.ltl .axis{position:absolute;left:0;right:0;top:7.5px;height:1px;background:var(--line)}
+.ltl i{position:absolute;top:4px;width:7px;height:7px;border-radius:50%;transform:translateX(-3.5px)}
+.lkids{padding:2px 0 14px;columns:2;column-gap:26px}
+@media (max-width:1100px){.lkids{columns:1}}
+.lkids a{display:block;font-size:11.5px;color:var(--dim);text-decoration:none;padding:3px 0;
+  transition:color .2s;break-inside:avoid}
+.lkids a:hover{color:var(--ink)}
+.lkids a span{font-family:"JetBrains Mono",monospace;font-size:9px;opacity:.5;margin-right:8px}
+.lempty{padding:30px 0;font-family:"Instrument Serif",serif;font-style:italic;
+  color:rgba(243,240,233,.36);font-size:16px}
 
 @media (max-width:1200px){.shell{grid-template-columns:250px minmax(0,1fr)}.rail.r{display:none}}
 </style>
@@ -121,22 +262,39 @@ input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radiu
   </aside>
 
   <main class="stage" id="stage">
-    <svg id="sv" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="field" id="field">
+      <svg id="sv" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
     <div class="tip" id="tip"></div>
+    <div class="listview" id="listview"></div>
+    <div class="hint" id="hint">Scroll to compound<i>↓</i></div>
     <div class="controls">
-      <div class="row">
-        <button class="btn on" id="mTime">Time</button>
-        <button class="btn" id="mDepth">Depth</button>
+      <div class="tier">
+        <div class="grp">
+          <span class="glab">Axis</span>
+          <button class="btn on" id="mTime">Time</button>
+          <button class="btn" id="mDepth">Depth</button>
+        </div>
+        <div class="vdiv"></div>
         <div class="scrub">
           <span class="yr">2020</span>
           <input type="range" id="scrub" min="2020" max="2026" value="2026" step="1">
           <span class="yr" id="yrTo">2026</span>
         </div>
         <button class="btn" id="play">Compound ▸</button>
+        <div class="vdiv"></div>
+        <button class="btn" id="toggle">List</button>
       </div>
-      <div class="row" id="legend"></div>
-      <div class="row" id="types"></div>
-      <div class="caveat" id="caveat"></div>
+      <div class="tier">
+        <div class="chan" id="legend"></div>
+        <div class="vdiv"></div>
+        <div class="grp" id="types"></div>
+      </div>
+      <div class="tier">
+        <div class="fstate" id="fstate"></div>
+        <div class="spacer"></div>
+        <div class="caveat" id="caveat"></div>
+      </div>
     </div>
   </main>
 
@@ -170,20 +328,42 @@ input[type=range]::-moz-range-thumb{width:10px;height:10px;border:0;border-radiu
    Same 428 points either way. Switching tweens between them, which makes the
    point better than any caption: the work doesn't change, the question does.
    ========================================================================= */
-const DATA = {"c":[{"n":"UD Trucks","t":"Clients","s":"Active"},{"n":"ISUZU","t":"Clients","s":"Active"},{"n":"Grammarly","t":"Clients","s":"Inactive"},{"n":"TDK","t":"Clients","s":"Active"},{"n":"YF","t":"Internal","s":"Active"},{"n":"Curaden","t":"Clients","s":"Inactive"},{"n":"CAKE TEAM SPIRIT","t":"Ventures","s":"Active"},{"n":"XPEL JAPAN","t":"Clients","s":"Active"},{"n":"Porsche","t":"Clients","s":"Done"},{"n":"Kazumasa Kawasaki","t":"Clients","s":"Inactive"},{"n":"Manga Productions","t":"Clients","s":"Inactive"},{"n":"Luxembourg Pavilion EXPO","t":"Clients","s":"Active"},{"n":"Wow Food","t":"Clients","s":"Done"},{"n":"MRN Japan","t":"Clients","s":"Done"},{"n":"Via Sage","t":"Partner","s":"Done"},{"n":"AXA","t":"Clients","s":"Done"},{"n":"Clenergy","t":"Clients","s":"Done"},{"n":"Osaka EXPO","t":"Clients","s":"Inactive"},{"n":"Mitsubishi Chemical Group [MCG]","t":"Clients","s":"Done"},{"n":"Baseload","t":"Clients","s":"Done"},{"n":"Embassy of the Slovak Republic","t":"Clients","s":"Dead"},{"n":"IMMINENT","t":"Partner","s":"Dead"},{"n":"Soudesune.jp","t":"Ventures","s":"Inactive"},{"n":"SCANIA","t":"Clients","s":"Inactive"},{"n":"Mondo Marketing","t":"Partner","s":"Done"},{"n":"Polish Graphic Design","t":"Clients","s":"Done"},{"n":"Pixelfederation","t":"Clients","s":"Inactive"},{"n":"beSTREAM","t":"Clients","s":"Dead"},{"n":"STANDART MAG","t":"Clients","s":"Inactive"},{"n":"Cardano","t":"Clients","s":"Dead"},{"n":"Uniden","t":"Clients","s":"Done"},{"n":"New York Hair Salon","t":"Clients","s":"Proposal"},{"n":"Mojo","t":"Clients","s":"Dead"},{"n":"KIKA","t":"Clients","s":"Dead"},{"n":"Creative Dock","t":"Clients","s":"Proposal"},{"n":"Access Japan Estate","t":"Ventures","s":"Inactive"},{"n":"BENTOBOX","t":"Partner","s":"Proposal"},{"n":"PepperMayo","t":"Clients","s":"Proposal"},{"n":"British American Tobacco","t":"Clients","s":"Dead"},{"n":"biOrb","t":"Clients","s":"Inactive"},{"n":"Asahi Holdings","t":"Clients","s":"Proposal"},{"n":"Urtopia","t":"Clients","s":"Dead"},{"n":"XENERA","t":"Clients","s":"Done"},{"n":"ISHITOMO","t":"Clients","s":"Dead"},{"n":"Eggworm","t":"Partner","s":"Dead"},{"n":"Boehringer-Ingelheim NBI","t":"Clients","s":"Done"},{"n":"Tier IV","t":"Clients","s":"Done"},{"n":"JoyTunes","t":"Clients","s":"Dead"},{"n":"Zing","t":"Partner","s":"Inactive"},{"n":"NIHONICHI","t":"Ventures","s":"Active"},{"n":"Mertel","t":"Clients","s":"Active"},{"n":"Vanessa Chan","t":"Partner","s":"Inactive"},{"n":"Lunarossa Y’ppi","t":"Clients","s":"Dead"},{"n":"TWO ROOMS","t":"Clients","s":"Dead"},{"n":"BeLenka","t":"Clients","s":"Dead"},{"n":"Central Pacific Bank","t":"Clients","s":"Dead"},{"n":"Mistione Saudi","t":"Partner","s":"Dead"},{"n":"Ziplus","t":"Clients","s":"Dead"},{"n":"Slovakia Travel","t":"Clients","s":"Done"},{"n":"Nijo Hotel","t":"Clients","s":"Done"},{"n":"Spark","t":"Clients","s":"Inactive"},{"n":"DAIYA","t":"Clients","s":"Inactive"},{"n":"Inside Brand Japan","t":"Ventures","s":"Active"},{"n":"ATR Aircraft","t":"Clients","s":"Done"},{"n":"Amplus","t":"Clients","s":"Dead"},{"n":"Austral Group","t":"Partner","s":"Inactive"},{"n":"OnDigital","t":"Clients","s":"Dead"},{"n":"Candia","t":"Clients","s":"Inactive"},{"n":"Mele Mele","t":"Clients","s":"Done"},{"n":"yf&co Alliance","t":"Partner","s":"Inactive"},{"n":"Sodiaal","t":"Clients","s":"Dead"},{"n":"YDISTRI","t":"Clients","s":"Inactive"},{"n":"Libra","t":"Clients","s":"Dead"},{"n":"IBM","t":"Clients","s":"Dead"},{"n":"iQuest","t":"Clients","s":"Inactive"},{"n":"Mirus","t":"Clients","s":"Dead"},{"n":"INK","t":"Clients","s":"Dead"},{"n":"KYARA","t":"Ventures","s":"Proposal"},{"n":"Absolute Internship","t":"Partner","s":"Proposal"},{"n":"UR","t":null,"s":"Proposal"},{"n":"GEMSWORLD","t":"Clients","s":"Proposal"},{"n":"Bornan","t":"Clients","s":"Proposal"},{"n":"Zajo","t":"Clients","s":"Proposal"},{"n":"Fujitaka","t":"Clients","s":"Dead"},{"n":"IOHK","t":"Clients","s":"Dead"},{"n":"Brabus","t":"Clients","s":"Inactive"},{"n":"Stellax","t":"Clients","s":"Dead"},{"n":"Verizon","t":"Partner","s":"Done"},{"n":"BUS 44","t":"Clients","s":"Dead"},{"n":"Ecoloupe","t":"Clients","s":"Dead"},{"n":"Keychain","t":"Clients","s":"Dead"},{"n":"Erik Sille","t":"Clients","s":"Done"},{"n":"DIALOGUE","t":"Clients","s":"Done"},{"n":"Nikon","t":"Clients","s":"Dead"},{"n":"Mazda","t":"Clients","s":"Dead"},{"n":"Bitcoin.com","t":"Clients","s":"Dead"},{"n":"Fedex","t":"Clients","s":"Dead"},{"n":"Volvo Trucks","t":"Clients","s":"Done"},{"n":"Opel","t":"Clients","s":"Dead"},{"n":"DOLPHIN","t":"Clients","s":"Done"},{"n":"YunYan","t":"Clients","s":"Done"}],"p":[["UD: AR Filters",0,2020,[],0],["UD: Challenger Projects",0,2020,[2],1],["UD: Leadership Summit 2021 [2020]",0,2020,[3,2],2],["UD: Online Shop",0,2020,[0,4],3],["UD: Sales Tool  -  Digital",0,2020,[2],4],["UD: SNS Boost",0,2020,[4],5],["UD: UDEMC 2020 / 21",0,2020,[3],6],["UD: Website & App",0,2020,[4],7],["UD : Hiroshima Video Shooting",0,2021,[2],8],["UD : Yammer, Pickit",0,2021,[2],9],["UD Hiroshima",0,2021,[2],10],["UD Partner Conference 2022",0,2021,[3],11],["UD: 2022 - UD Cold Region Test",0,2021,[2],12],["UD: Ageo virtual Factory Tour",0,2021,[2],13],["UD: ERM editing/subtitling",0,2021,[2],14],["UD: Evolution of Studio #106",0,2021,[2],15],["UD: HQ 106 Studio Upgrade 2021",0,2021,[2],16],["UD: Leadership Summit 2021",0,2021,[3,2],17],["UD: Leadership Summit 2021",0,2021,[3,2],18],["UD: P9545 - New Quester & Croner Launch",0,2021,[5],19],["UD: Quon & Quester Photography [New Visual Imagery 2021]",0,2021,[2],20],["UD: SNS Content Creative",0,2021,[],21],["UD: SNS Content Strategy & Planning",0,2021,[],22],["UD: Studio 106 - Banner Options",0,2021,[0],23],["UD: Studio 106 - Extra Furniture",0,2021,[0],24],["UD: Studio Room #106",0,2021,[2],25],["UD: UDT0086 : A - Ibaraki Kashima CC [Video]",0,2021,[2],26],["UD: UDT0086 B - Ibaraki Kashima CC [Photography]",0,2021,[2],27],["UD: Uptime Conference 2021",0,2021,[3],28],["UD: White Impulse Video - Better Life in the extreme weather",0,2021,[2],29],["Isuzu: CEO訓示 & VOIS Event",0,2022,[3],30],["UD : UDEC Entrance Renewal",0,2022,[3],31],["UD Ageo Marathon 2022",0,2022,[2],32],["UD UPTIME Conference 2022 Edit",0,2022,[2],33],["UD: HR Brand Video",0,2022,[2],34],["UD: Human Resource",0,2022,[2],35],["UD: New uniform rollout - communication",0,2022,[0],36],["UD: Quon GW Project Wiki",0,2022,[2],37],["UD: UDT0105 - P9254 Features Short animation",0,2022,[2],38],["UD: 生産部門：Training Center構築",0,2022,[2],39],["UDT0107:  Ageo [Photo] Model Candidate Proposal",0,2022,[2],40],["[UDT00##] — NTT Ad : Meeting",0,2023,[2],41],["E-Learning Video",0,2023,[2],42],["UD Partner Conference 2023",0,2023,[3],43],["UD: SNS Audit & Yearly Maintenance",0,2023,[4],44],["UD: UD × Isuzu Event",0,2023,[3],45],["UDT - Brand-Corporate Film 2024",0,2023,[2],46],["[UDT0080] — 43, 44 Christmas & New Year SNS Assets",0,2024,[],47],["UD : 2024 SNS Assets (x3)",0,2024,[],48],["UD Running Photos & Videos",0,2024,[2],49],["UD studio update 2024",0,2024,[2],50],["[UDT0080] — 2025 Halloween & Christmas SNS Post",0,2025,[],51],["[UDT0130] — Tractor Driver Contest",0,2025,[2],52],["[UDT0131] — UD  Model Photoshoot",0,2025,[2],53],["[UDT0133] SNS Truck Model Images",0,2025,[],54],["[UDT0134] — UD 90 Year Anniversary Celebration",0,2025,[0,3],55],["[UDT0135] — UD Hall of Fame Shooting",0,2025,[2],56],["[UDT0136] — UD Woman Test Driving Day",0,2025,[3],57],["[UDT0145] - UD SNS 2026-2027",0,2025,[],58],["UD : Auditorium Update",0,2025,[3],59],["[UDT00##] — Model Photoshooting",0,2026,[2],60],["[UDT0137] — Gemba Challenge 2027",0,2026,[3],61],["[UDT0138] — Model Photos in Ageo (UDEC)",0,2026,[],62],["[UDT0139] — EMC 2026",0,2026,[],63],["[UDT0139] — UD EMC 2026 Asset Production",0,2026,[],64],["[UDT0140] — Studio update 2026",0,2026,[],65],["[UDT0141] — EMC Comm Kit Design",0,2026,[],66],["[UDT0142] — UD Family Day Design Materials",0,2026,[],67],["[UDT0144] — UD Safety Awareness Poster",0,2026,[],68],["[UDT0150] - SNS Short Videos (改善活動とカラクリ紹介ビデオ）",0,2026,[],69],["[UDT0151] — 綾部 CC 津山CC ミックス (2-3min Highlight Video)",0,2026,[],70],["[ISZ0003] — Isuzu Studio Building",1,2023,[2],0],["[ISZ0009] — IHSP 15th anniversaries - Tacloban 2nd Tripn",1,2023,[2],1],["Confidential - ISUZU [Tacloban & Manila] Video Shooting",1,2023,[2],2],["Isuzu Fuji Mountain Activity Video [いすゞ森作り活動]",1,2023,[2],3],["ISUZU TOWN いすゞタウンウェブサイト",1,2023,[4],4],["[ISZ0011] — Minami COO interview shoot",1,2024,[2],5],["[ISZ0013] — Isuzu IT section TH 2024 spring",1,2024,[3],6],["[ISZ0018] — Innovation Hour 2024",1,2024,[3],7],["[ISZ0019] — Gemba Poster",1,2024,[0],8],["[ISZ0020] — VOIS 2024",1,2024,[3],9],["Innovation Hour Video Edit",1,2024,[2],10],["Isuzu: Isuzu Plaza & Fujisawa Factory Video & Photo",1,2024,[2],11],["ISZ0012 - Isuzu Spring Traffic Safety Fest",1,2024,[2],12],["ISZ0015 - Isuzu Kai (いすゞ会) Party Banner & Message Card",1,2024,[0],13],["[ISZ00##] — Boardmember Still photo",1,2025,[2],14],["[ISZ0023] — Genuine Parts Video - 海外向け補修専用部品 - プロモーション動画",1,2025,[2],15],["[ISZ0024] — 自動運転標識車ビデオ　(北海道）",1,2025,[2],16],["[ISZ0026] — XI UPDATE",1,2025,[3,2],17],["[ISZ0027] — Isuzu AI event (2025 June)",1,2025,[3,2],18],["[ISZ0029] — Isuzu Studio Building",1,2025,[2],19],["[ISZ0030] — VOIS 2025 Autumn",1,2025,[3,2],20],["[ISZ0031] — Isuzu AI Contest Vol.2 (Internal)",1,2025,[3,2],21],["[ISZ0032] — JMS2025 - Kids Mechanic Photos",1,2025,[2],22],["[ISZ0033] — Chairman Katayama Photo/Video shoot for  JMS",1,2025,[2],23],["[ISZ0034] — VOIS energizer video edit",1,2025,[2],24],["[ISZ0040] — Isuzu Anime Demo YF x  Loops",1,2025,[2],25],["LT: [ISZ0022] —  Sustainability Workshop Promotion Movie",1,2025,[2],26],["ReO: [ISZ0025] —  Mobile Wall Paper Design",1,2025,[0],27],["[ISZ0036] — Code of Conduct (行動規範動向) Video",1,2026,[],28],["[ISZ0039] —CEO Message video - add subtitles",1,2026,[],29],["[ISZ0041] — Isuzu CEO Live Stream",1,2026,[],30],["[ISZ0042] — Isuzu CEO100 days video",1,2026,[],31],["[ISZ0043] —  Board Member Portrait photos",1,2026,[],32],["[ISZ0043] — 役員Portrait撮影 2026 June",1,2026,[],33],["[ISZ0045]  役員Portrait撮影 2026 August",1,2026,[],34],["[ISZ0046] — VOIS 2026 (October 13th)",1,2026,[],35],["[GRM0000] — Account",2,2022,[6],0],["GRM: Brand Materials Localisation",2,2022,[0],1],["GRM: Brochure",2,2022,[0],2],["GRM: GW Campaign",2,2022,[5],3],["GRM: Hybrid Leaders Event",2,2022,[3],4],["GRM: JMEC Testimonial video production",2,2022,[2],5],["GRM: New Life Campaign",2,2022,[5],6],["GRM: Official Website Content Localisation",2,2022,[1],7],["GRM: SMB (Re-Open) Campaign",2,2022,[5],8],["GRM: The Top Line",2,2022,[5,6],9],["[GRM0001] — New Life 2022",2,2023,[5],10],["[GRM0002] — Golden Week 2022",2,2023,[5],11],["[GRM0003] — 3 Videos Localization Re-Edit",2,2023,[2],12],["[GRM0004] — Copy Translations Projects",2,2023,[5],13],["[GRM0005] — GB features manual for admins (Snippets & StyleGuides )",2,2023,[0],14],["[GRM0006] — Security FAQ PDF",2,2023,[1],15],["[GRM0007] — E-Brochure - Evergreen",2,2023,[5],16],["[GRM0008] — JMEC @ American Club Testimonial",2,2023,[2],17],["[GRM0009] — Rakuten Banner",2,2023,[5],18],["[GRM0010] — Grammarly Premium User Interviews",2,2023,[2],19],["[GRM0011A] — Japanese Customer Testimonial (Youhei)",2,2023,[2],20],["[GRM0011B] — Japanese Customer Testimonial (Simon)",2,2023,[2],21],["[GRM0012] — Small and Medium Business 2022",2,2023,[5],22],["[GRM0012X] — Small and Medium Business 2022 LP",2,2023,[5],23],["[GRM0013] — Japanese Landing page",2,2023,[5],24],["[GRM0014] — New Professional - NP 2022",2,2023,[5],25],["[GRM0015] — SMB Testimonial @ HAKUBA ( Sayaka )",2,2023,[2],26],["[GRM0016] — Video Translations [ Sayaka ]",2,2023,[1],27],["[GRM0017] — Grammarly Business video editing",2,2023,[2],28],["[GRM0018］— Influencer Research",2,2023,[7],29],["[GRM0019] — Pay gate Video",2,2023,[2],30],["[GRM0021] — Fundraiser Video",2,2023,[2],31],["[GRM0022] — Webinar",2,2023,[2],32],["[GRM0024] — New Professional - NP 2023",2,2023,[5],33],["[GRM0025] — Rakuten Englishnization Posters",2,2023,[1],34],["Grammarly: Demand Generation",2,2023,[5],35],["[TDK0001] — Supplier Sustainability Summit (SSS) [Virtual/Live]",3,2024,[3],0],["[TDK0002] — Transformation In Action / Leadership Kick-off Meeting",3,2024,[3],1],["TDK - Studio Building",3,2024,[2],2],["[TDK0003] — IWD(International Woman’s Day) Video Edit",3,2025,[2],3],["[TDK0004] — IWD JP Seminar Event 3/4",3,2025,[3],4],["[TDK0005] — IWD week Seminar 2 - 0307 YTC",3,2025,[3],5],["[TDK0008] — TDK Fit : Video, KV & Logo",3,2025,[2],6],["[TDK0008] — TDK Fit Challenge Design",3,2025,[2,0],7],["[TDK0009] — World Athletics Championships Tokyo 2025",3,2025,[2],8],["[TDK0010] — TDK 1st Townhall Meeting",3,2025,[3],9],["[TDK0011] — TDKFit x WAC Short Videos",3,2025,[2],10],["[TDK0014] — Cafe Canteen Branding",3,2025,[4],11],["[TDK0016] — CEO Saito-san Message [Porsche]",3,2025,[2],12],["[TDK0017] — 第2回 Town Hall Meeting",3,2025,[3],13],["[TDK0018] —TDK90 Design and video content related to the anniversary",3,2025,[2],14],["[TDK0023] — Tsumura event",3,2025,[3],15],["TDK [Journalism] YF Brand History: TDK",3,2025,[4],16],["[TDK00##] — TDK Corporate Portrait Edit",3,2026,[],17],["[TDK0020] — 2026 Kick-off meeting",3,2026,[3],18],["[TDK0021] — IWD week 2026",3,2026,[3],19],["[TDK0022] — TDK united Q3 THM",3,2026,[3],20],["[TDK0024] — SSS  Event",3,2026,[3],21],["[TDK0025] — ECBC（電子事業部品） : TH 2026",3,2026,[],22],["[TDK0027] — 2026 Pride Month Sticker",3,2026,[],23],["[TDK0029] — TDK Launch Engine CEO Video",3,2026,[],24],["[TDK0030] —  TDK United Town Hall 2026 - Q1",3,2026,[],25],["[YF0009] — YF R&D",4,2025,[6],0],["YF — Internships",4,2025,[6],1],["YF — New Business",4,2025,[7],2],["YF — Operations",4,2025,[6],3],["[YF00##] — AG TEST",4,2026,[],4],["[YF00##] — AG TEST 2",4,2026,[],5],["[YF00##] — Brano’s Landing Page",4,2026,[],6],["[YF00##] — Framer, Magnific and Wise comm",4,2026,[],7],["[YF00##] — NDA x Freelancer",4,2026,[],8],["[YF00##] — Notion Ops Workflow Launch",4,2026,[],9],["[YF00##] — Polina Tokyo Boot Camp",4,2026,[],10],["[YF00##] — Search Japanese Intern orgs",4,2026,[],11],["[YF00##] — Xpel Visualizer: How to Video",4,2026,[],12],["[YF00##] — YF AI Social Post Strategy",4,2026,[],13],["[YF00##] — YF Design System",4,2026,[],14],["[YF00##] — YF Socials",4,2026,[],15],["[YF00##] — YF Tokens of Excellence — Token Posts Production",4,2026,[],16],["[YF00##] Website Milestone 2",4,2026,[],17],["YF — Business Model",4,2026,[],18],["YF — Portfolio & Showcases",4,2026,[],19],["YF — Website",4,2026,[],20],["[CUR0001] — JP CULTURE & ALIGNEMENT",5,2023,[5],0],["[CUR001A] — JP  Workshop #1",5,2023,[0],1],["[CUR00A] — Knowledge & Research INTERNAL",5,2023,[7],2],["[CUR00B] — Brand - Japan",5,2023,[1],3],["[CUR00C] — Brand - Global",5,2023,[1,0],4],["[ I ] JP Workshop #1 PRE-SURVEY",5,2024,[7,0],5],["[ II ] JP Workshop #1 NURTURING EMAILS",5,2024,[0],6],["[CUR000] — CURAPROX ACCOUNT INTAKE",5,2024,[6],7],["[CUR0002] — Consumer Brand Inside Research in Japan",5,2024,[1],8],["[CUR0003] — Japan - Campaign",5,2024,[5],9],["[CUR0010] — JP Workshop 1 — [ Highlight Video ]",5,2024,[2],10],["[CUR001B] — JP Workshop #2",5,2024,[0],11],["[CUR002C] — JP BRAND Campaign",5,2024,[1],12],["[CUR00A1A] — JP Workshop #1 Pre-Production",5,2024,[0],13],["[CUR00A1B]  — JP Workshop #1 Production [D] day",5,2024,[0],14],["[CUR00A1C]  — JP Workshop #1 Post - Production",5,2024,[2],15],["[CURAPROX] — Maintain Client Portal",5,2024,[6],16],["Campaign Planning",5,2024,[5],17],["Curaprox: Spec Work - Success First",5,2024,[6],18],["Cake Client: Gypsy",6,2023,[0],0],["Cyclo Event (SK, JP)",6,2024,[3],1],["[CTS00##] — Cake Campaign 3 is a team Landing page",6,2025,[4],2],["[CTS0001] — Cake Infrastructure",6,2025,[4],3],["[CTS0003] — Cake Product Development",6,2025,[0],4],["[CTS0004] — Cake Website",6,2025,[4],5],["[CTS0005] — Cake Social - Fall 2025",6,2025,[5],6],["[CTS0006] — Cake Campaign - Summer 2025 ( 3 is a Team )",6,2025,[5],7],["[CTS0007] — Cake Business Fix",6,2025,[7],8],["[CTS0008] — Cake Crowdfunding",6,2025,[5],9],["[CTS0009] — Cake Social",6,2025,[],10],["[CTS0011] — Cake Price Modeling",6,2025,[1],11],["[CTS0012] — Cake B2B Proposition Modeling",6,2025,[7],12],["[CTS0015] — Cake Buddy - AI Assistant",6,2025,[0],13],["[CTS0020] — CUSTOM JERSEY",6,2025,[0],14],["[GYPSY Crowdfunding] Round 2 - campaign",6,2025,[5],15],["[CTS00##] — Cake jersey design 2026",6,2026,[],16],["[CTS00##] — CAKE Sport event support",6,2026,[],17],["[XPL0002] — XPEL Event [XDC2025]",7,2025,[3],0],["[XPL0003] — XPEL App – v1 ( XDC EDITION )",7,2025,[4],1],["[XPL0004] — T-shirts",7,2025,[0],2],["[XPL0004] — XPEL App – v2 Post XDC Enhance",7,2025,[4],3],["[XPL0005] — XPEL Website (SEO)",7,2025,[4],4],["[XPL0006] — Social Campaign",7,2025,[5],5],["[XPL0007] — XPEL Brochure Design",7,2025,[0],6],["[XPL0008] — XPEL Campaign",7,2025,[5],7],["[XPL00##] — XPEL How To Video",7,2026,[],8],["[XPL0009] — XDC 2026",7,2026,[],9],["[XPL0010] — XPEL Video",7,2026,[],10],["SmaMo Video",8,2020,[2],0],["[PRS00##] — SCJP 2021 Video Production",8,2021,[2],1],["[PRS0006] — SMC2021",8,2021,[3,2],2],["Porsche: SMC2022",8,2022,[3,2],3],["[PRS0005] — Cayenne Promotional Video Asset Creation 2023",8,2023,[2],4],["[PRS0009] Halloween",8,2023,[2],5],["Hoodie",8,2023,[0],6],["PEC Promotion Video Proposal",8,2023,[2],7],["Roof tent marketing creative",8,2023,[2],8],["[PRS00##] — Porsche PEC Video [Pitch]",8,2025,[2],9],["[KK0001] Website [2024]",9,2024,[4],0],["[KK0003] — KK Profesional Photo Proposal",9,2024,[2],1],["[KK0000] — [KK0000] Account",9,2025,[7],2],["[KK0001] — KK Package",9,2025,[0],3],["[KK0002] Research",9,2025,[1],4],["[KK0004] — KK Social [2025]",9,2025,[4],5],["[KK0005] — KK Website [2025]",9,2025,[4],6],["[KK0006] — KK Instagram Management",9,2025,[4],7],["[KK0010] — KK  Fulfilment",9,2026,[6],8],["MangaProduction: Movie Premiere event",10,2021,[2],0],["MangaProduction: Voxpop x 10",10,2021,[2],1],["Manga Productions : Akihabara Event",10,2023,[3,2],2],["[MGP0019] — Asateer 2 Movie Premier",10,2024,[2],3],["Manga Productions Graduation Videos",10,2024,[2],4],["Manga Osaka Expo Video shooting [Lead Project : 見積り詳細]",10,2025,[2],5],["[MGP0010] — Anime Japan 2026",10,2026,[],6],["[MGP0011] — Manga in Cannes",10,2026,[],7],["[LUX0001] LUX Pavilion - Big Campaign",11,2025,[5,4],0],["[LUX0002] — Better communication of Lux Pavilion EXPO",11,2025,[0,1],1],["[LUX0003] — LUX Pavilion + GEI 3 Diversity Act Videos",11,2025,[0,2],2],["[LUX0004]  — LUX Pavilion - Art Activation",11,2025,[0,1],3],["[LUX0005] — LUX Pavilion - Comm Report",11,2025,[4],4],["[LUX0006] — LUX Pavilion - Family Activation",11,2025,[4,2],5],["[LUX0007] — LUX Pavilion - APP Activation",11,2025,[4,2],6],["[LUX00##] — Luxembourg Yokohama 2027",11,2026,[],7],["WOW Food: Vision, Corporate Branding & Strategy",12,2021,[0],0],["WOW Food: Grape Flavour Beverage",12,2022,[0],1],["WOW Food: Homepage renew project",12,2022,[4],2],["WOW Food: Kombucha Beauty Club",12,2022,[0],3],["WOW Food: Landing Page",12,2022,[4],4],["WOW Food: Whole Fruits Landing Page Project",12,2022,[4],5],["[W0010] — Wow “Natural Garden Latte”",12,2026,[],6],["[MRN00001] — Localized Website ( Global to JP )",13,2023,[4],0],["[MRN0002] — Sales support materials",13,2023,[0],1],["[MRN0003] — Local case study/communication",13,2023,[1],2],["[MRN0004] — Brand recognition campaign",13,2023,[5],3],["[MRN0005] — 2023 - DIA Japan",13,2023,[3],4],["[MRN0006] — Website Workshop",13,2023,[4],5],["[MRN00##] — [MRN0000] Account",13,2025,[1],6],["[VSG0004] JIHYE - Collaboration (YF & ViaSage)",14,2024,[7],0],["[VIA005] — Viasage Corporate Brand pack",14,2025,[0],1],["[VSG0001] — 7/7 Team Building Workshop",14,2025,[6],2],["[VSG0002] — Via Sage Website",14,2025,[4],3],["[VSG0003] Via Sage Website & Content",14,2025,[4],4],["[VSG0005] — HR Workshop Juliana Pechar",14,2025,[2,0],5],["AXA Streaming TH Event",15,2022,[3],0],["AXA: 2024 Kickoff Event - YF Agency",15,2023,[3],1],["AXA: YF (Work in Process)",15,2023,[3],2],["AXA: YF (Work in Process)",15,2023,[3],3],["2025 AXA Kickoff Event",15,2024,[3],4],["Clenergy: Interview in Germany",16,2021,[3],0],["Clenergy: Master Brochure",16,2021,[0],1],["Clenergy: PV Expo 2021 Photoshoot",16,2021,[2],2],["Clenergy: PV Expo Booth",16,2021,[3],3],["Clenergy: PV Expo Video",16,2021,[3],4],["Belize??",17,2025,[],0],["EXPO UCG video to all countries",17,2025,[],1],["Osaka Expo 2025 - Pop Up [Pixelfed]",17,2025,[3],2],["Slovak Social & PR",17,2025,[4],3],["Mitsubishi: Strategy & Planning",18,2021,[3],0],["YF x Mitsubishi Chemical",18,2021,[0,3],1],["MCG: New Brand Launch Ceremony Event",18,2022,[3],2],["The MCG Market-Centric Explainer Video",18,2022,[3],3],["[BSL001] — Baseload: Okuhida Onsen",19,2021,[2],0],["[BSL002] — Baseload: Kyushu",19,2021,[2],1],["[BSL003] — Baseload: Company Japan",19,2021,[2],2],["[BSL004] — Baseload : Sansui / Shika Shooting",19,2022,[2],3],["[ESR0001] — Business In Japan Workshop",20,2024,[0],0],["[SVK0001] — Meeting room update proposal",20,2024,[],1],["[ESR0001] — Japanese market PPT March 10th Workshop",20,2025,[0],2],["[IMM00##] — Quarry-On Production",21,2023,[0],0],["[IMM0002] — iQos Maker Research",21,2023,[0],1],["[IMM0000] — Imminent Account & Intake",21,2025,[6],2],["Soudesune Pivot",22,2021,[0],0],["[SDSN0004] Salaryman Culture Ware",22,2024,[0],1],["[SDSN0002] — New SOUDESUNE Collections",22,2025,[0],2],["[SCA0001] — CEO Interview Video",23,2024,[2],0],["[SCN0002] — Christmas and New year greeting video",23,2025,[],1],["[SCN0003] — Scania team of technicians video",23,2026,[2],2],["ACREDO Video Proposal",24,2024,[2],0],["Jesus : Animation Film [Poster Creative]",24,2024,[0],1],["JESUS : Animation Film [Poster Creative]",24,2024,[0],2],["PGD Conference 2024",25,2024,[3],0],["Photographer for PGD",25,2024,[2],1],["[PIX0001] — Train Station Game & Beyond",26,2024,[1],0],["[PIX0002] — Truck Game by Pixelfederation",26,2025,[3],1],["BS: beStream app - UX/UI",27,2021,[4],0],["BS: beStream- Splash Screen Animation",27,2021,[4],1],["[SMG00##] — Activate Standard Mag in Japan",28,2025,[1],0],["The Kickstart",28,2025,[1],1],["Cardano in Japan",29,2021,[5],0],["Tokyo Cardano Summit Vol. 1",29,2022,[5],1],["[UND0001] — Uniden × 日本ハムフェア 2025",30,2025,[3],0],["[UND0002] — 60th History video",30,2026,[0],1],["[NYH0001] Hairsalon Recruit Promo Video",31,2025,[2],0],["[NYH0002] Bridal Promo Video",31,2025,[2],1],["Mojo",32,2024,[4],0],["[MJO00##] — Mojo Proposal",32,2025,[4],1],["Kika: Nature’s Protection",33,2020,[1],0],["[KIKA00##] — Go to Market Strategy",33,2025,[7],1],["[CD0001] — Find the  JP accounting firm & individual for CD",34,2025,[7],0],["[CD0002] — Propose the colab with CD",34,2025,[7],1],["Access Japan Estate",35,2023,[1],0],["[AJE00##] — Access Website",35,2025,[4],1],["[BNT0001] — Digital Bentobox",36,2026,[4],0],["[BNT0002] — BentoBox Proposal",36,2026,[],1],["[PPM0001] TOKYO BRAND TRIP",37,2026,[],0],["Market Immersion",37,2026,[],1],["BAT: glo Hyper + / Lucky Strike",38,2021,[5],0],["Project Template",38,2024,[5],1],["Oase: biOrb in Japan",39,2020,[3],0],["Oase: biOrb & Oase Website",39,2021,[4],1],["[ASH0001] — Townhall",40,2026,[],0],["[ASH0002] — GSLM",40,2026,[],1],["[URT00##] — Urtopia: Market Entry",41,2023,[1],0],["[URT0001] —  GO-TO-MARKET Proposal",41,2023,[7,1],1],["Xenera: [2 Months] Mixed Reality",42,2021,[2],0],["Xenera: [NEW] Mixed Reality",42,2021,[2],1],["[ISH0001] — AR Social Media Content",43,2021,[2,0],0],["Ishitomo: AR Filter",43,2021,[],1],["[EGG0005] — Frescobol - Shoot",44,2020,[2],0],["EW: JPアイデア",44,2021,[7],1],["[BIN0001] — XD Lab Video",45,2022,[2],0],["[BIN0002] — XD Lab Workshop",45,2022,[2],1],["Tier 4 - Video Project Assessment [Confidential]",46,2021,[2],0],["Tier 4: - 5+1 Video - 2D & 3DCG Project Assessment [Confidential]",46,2021,[2],1],["JYT: Simply Piano App Promo Video",47,2022,[2],0],["Zing: Web-based AR",48,2024,[2],0],["[N10001] — NIHONICHI",49,2024,[4],0],["[CZP0001] — Czech Pavilion",50,2024,[7],0],["[VCH0001] — HK CNY 3D Anamorphic",51,2024,[2],0],["Lunarossa Y’ppi",52,2024,[4],0],["[TRM0001] — SNS Contents & Marketing Promotion",53,2025,[4],0],["Belenka to Asia",54,2025,[1],0],["YF x Central Pacific Bank",55,2021,[1],0],["Trade Mission to Saudi Arabia – Film & Video Production",56,2025,[7],0],["[00##] — Ziplus Blog Website Development",57,2025,[4],0],["Slovak Pavilion Content",58,2025,[],0],["Nijo Kyoto Hotel: Production Bible",59,2020,[2],0],["Spark: Digital Summit 2025",60,2025,[3],0],["[DYK0001] — ダイヤ工業株式会社 - Photography",61,2025,[2],0],["[IBJ0001] — IBJ - Main Content",62,2025,[],0],["[ATR0001] — Domain Transfer",63,2025,[4],0],["[AMP00##] — Pitch Amplus",64,2025,[2],0],["[AST00##] — Georgia MBA Students",65,2025,[7],0],["[OD00##] — On Digital Proposal",66,2025,[3],0],["[00##] — Sodiaal Brochure",67,2025,[0],0],["[MLM00##] — Mele Mele Proposal",68,2025,[4],0],["[&co0000] — YF Legacy Partnership  Fix",69,2025,[7],0],["[SDL00##] — Niigata Shoot",70,2025,[],0],["[YDS0001] — YDISTRI in JAPAN",71,2025,[1],0],["[LIB0001] — Libra Website",72,2025,[4],0],["YF x IBM",73,2021,[],0],["iQuest: Website Strategy/Creative",74,2020,[0,4],0],["[00##] — YF x MIRUS",75,2021,[2],0],["[00##] — Partnering INK x YF",76,2023,[5],0],["[KYR00##] — Kyara Development",77,2026,[0],0],["[ABS00##] — Miami Ohio Tokyo Visit",78,2026,[7],0],["[UR0001] — UR training videos",79,2026,[],0],["[GEM0001] — Gems World",80,2026,[],0],["[BRN0000] —Bornan Proposal",81,2026,[],0],["[0001] — Zajo Japan",82,2026,[],0],["[FJT0001] — Fujitaka: Go Brand",83,2021,[7],0],["CATALYST / CARDANO",84,2022,[5],0],["[BRB0001] - BRABUS Lights",85,2022,[1],0],["[00##] — Zero - One Webpage",86,2023,[4],0],["[VER0002] — Verizon PR Shoot",87,2022,[2],0],["YF x BUS 4x4",88,2021,[2],0],["Ecoloupe: Service Growth",89,2021,[7],0],["KEY: The Mograph recreate and adjust",90,2022,[2],0],["[YF0030] — Erik Sille | YF Original Video",91,2020,[2],0],["[DLG0001] — Bentley Magazine (Stills & Video)",92,2023,[2],0],["[00##] — YF x Nikon Lenswear",93,2021,[2],0],["[00##] — Mazda",94,2024,[2],0],["[00##] — Bitcoin.com",95,2021,[5],0],["[00##] — FEDEX: Photography",96,2020,[2],0],["VOIS editing project",97,2022,[2],0],["YF x Opel",98,2021,[1],0],["Dolphin yearly",99,2024,[4],0],["[YNY0001] YunYan: Animation / Movie Scroll Opener",100,2020,[2,0],0]]};
+const DATA = {"st":["Completed","Graveyard","Icebox","Internal","On Hold","On Track","Pitch","Ready to invoice","To Plan"],"tl":[["Account Management",-1],["Animation",2],["Brand Adaptation",1],["Brand Comm Design",0],["Brand Creation",0],["Brand Development",0],["Brand Localisation",1],["Brand OS Documentation",6],["Brand Strategy",0],["Brand Website",-1],["Brand Workshop",0],["Business Operation",6],["Business Strategy",6],["Campaign Creative",5],["Campaign Strategy",5],["Digital Experience Dev",-1],["Event Production",3],["Go to Market Strategy",1],["Internal Ops Systems",-1],["Japan Sourcing",-1],["Landing Pages",4],["Livestream Event",3],["Market Research",-1],["Media Production",-1],["Motion",2],["Opportunity Discovery",1],["Partnership",-1],["Photography",2],["Pop-Ups",3],["Product Development",0],["Proposition Design",-1],["Social Media Marketing",4],["Spatial Branding",-1],["Streaming Studio",2],["System Design",-1],["Tradeshow",3],["Video Production",2],["eCommerce Website",4]],"c":[{"n":"UD Trucks","t":"Clients","k":"UDT"},{"n":"ISUZU","t":"Clients","k":"ISZ"},{"n":"Grammarly","t":"Clients","k":"GRM"},{"n":"TDK","t":"Clients","k":"TDK"},{"n":"YF","t":"Internal","k":"YF"},{"n":"Curaden","t":"Clients","k":"CUR"},{"n":"CAKE TEAM SPIRIT","t":"Ventures","k":"CTS"},{"n":"XPEL JAPAN","t":"Clients","k":"XPL"},{"n":"Porsche","t":"Clients","k":"PRS"},{"n":"Kazumasa Kawasaki","t":"Clients","k":"KK"},{"n":"Manga Productions","t":"Clients","k":"MGP"},{"n":"Luxembourg Pavilion EXPO","t":"Clients","k":"LUX"},{"n":"Wow Food","t":"Clients","k":"WOW"},{"n":"MRN Japan","t":"Clients","k":"MRN"},{"n":"Via Sage","t":"Partner","k":"VIA"},{"n":"AXA","t":"Clients","k":"AXA"},{"n":"Clenergy","t":"Clients","k":"CLN"},{"n":"Osaka EXPO","t":"Clients","k":"OEX"},{"n":"Mitsubishi Chemical Group [MCG]","t":"Clients","k":"MCG"},{"n":"Baseload","t":"Clients","k":"BSL"},{"n":"Embassy of the Slovak Republic","t":"Clients","k":"ESR"},{"n":"IMMINENT","t":"Partner","k":"IMM"},{"n":"Soudesune.jp","t":"Ventures","k":"SDN"},{"n":"SCANIA","t":"Clients","k":"SCN"},{"n":"Mondo Marketing","t":"Partner","k":"MND"},{"n":"Polish Graphic Design","t":"Clients","k":"PGD"},{"n":"Pixelfederation","t":"Clients","k":"PIX"},{"n":"beSTREAM","t":"Clients","k":"BST"},{"n":"STANDART MAG","t":"Clients","k":"SMG"},{"n":"Cardano","t":"Clients","k":"CDN"},{"n":"Uniden","t":"Clients","k":"UND"},{"n":"New York Hair Salon","t":"Clients","k":"NYH"},{"n":"Mojo","t":"Clients","k":"MJO"},{"n":"KIKA","t":"Clients","k":"KIKA"},{"n":"Creative Dock","t":"Clients","k":"CRD"},{"n":"Access Japan Estate","t":"Ventures","k":"AJE"},{"n":"BENTOBOX","t":"Partner","k":"BNT"},{"n":"PepperMayo","t":"Clients","k":"PPM"},{"n":"British American Tobacco","t":"Clients","k":"BAT"},{"n":"biOrb","t":"Clients","k":"BIO"},{"n":"Asahi Holdings","t":"Clients","k":"ASH"},{"n":"Urtopia","t":"Clients","k":"URT"},{"n":"XENERA","t":"Clients","k":"XNR"},{"n":"ISHITOMO","t":"Clients","k":"IST"},{"n":"Eggworm","t":"Partner","k":"EGG"},{"n":"Boehringer-Ingelheim NBI","t":"Clients","k":"BIN"},{"n":"Tier IV","t":"Clients","k":"TIV"},{"n":"JoyTunes","t":"Clients","k":"JYS"},{"n":"Zing","t":"Partner","k":"ZNG"},{"n":"NIHONICHI","t":"Ventures","k":"N1"},{"n":"Mertel","t":"Clients","k":"MRT"},{"n":"Vanessa Chan","t":"Partner","k":"VCH"},{"n":"Lunarossa Y’ppi","t":"Clients","k":"LUN"},{"n":"TWO ROOMS","t":"Clients","k":"2R"},{"n":"BeLenka","t":"Clients","k":"BLN"},{"n":"Central Pacific Bank","t":"Clients","k":"CPB"},{"n":"Mistione Saudi","t":"Partner","k":"MST"},{"n":"Ziplus","t":"Clients","k":"ZPL"},{"n":"Slovakia Travel","t":"Clients","k":"SKT"},{"n":"Nijo Hotel","t":"Clients","k":"NH"},{"n":"Spark","t":"Clients","k":"SPK"},{"n":"DAIYA","t":"Clients","k":"DIY"},{"n":"Inside Brand Japan","t":"Ventures","k":"IBJ"},{"n":"ATR Aircraft","t":"Clients","k":"ATR"},{"n":"Amplus","t":"Clients","k":"AMP"},{"n":"Austral Group","t":"Partner","k":"AST"},{"n":"OnDigital","t":"Clients","k":"OD"},{"n":"Candia","t":"Clients","k":"CAN"},{"n":"Mele Mele","t":"Clients","k":"MLM"},{"n":"yf&co Alliance","t":"Partner","k":"&co"},{"n":"Sodiaal","t":"Clients","k":"SDL"},{"n":"YDISTRI","t":"Clients","k":"YDS"},{"n":"Libra","t":"Clients","k":"LIB"},{"n":"IBM","t":"Clients","k":"IBM"},{"n":"iQuest","t":"Clients","k":"IQS"},{"n":"Mirus","t":"Clients","k":"MIR"},{"n":"INK","t":"Clients","k":"INK"},{"n":"KYARA","t":"Ventures","k":"KYR"},{"n":"Absolute Internship","t":"Partner","k":"ABS"},{"n":"UR","t":null,"k":"UR"},{"n":"GEMSWORLD","t":"Clients","k":"GEM"},{"n":"Bornan","t":"Clients","k":"BRN"},{"n":"Zajo","t":"Clients","k":""},{"n":"Fujitaka","t":"Clients","k":"FJT"},{"n":"IOHK","t":"Clients","k":"IHK"},{"n":"Brabus","t":"Clients","k":"BRB"},{"n":"Stellax","t":"Clients","k":"STL"},{"n":"Verizon","t":"Partner","k":"TTR"},{"n":"BUS 44","t":"Clients","k":"BUS"},{"n":"Ecoloupe","t":"Clients","k":"ECL"},{"n":"Keychain","t":"Clients","k":"KEY"},{"n":"Erik Sille","t":"Clients","k":"ESL"},{"n":"DIALOGUE","t":"Clients","k":"DLG"},{"n":"Nikon","t":"Clients","k":"NIK"},{"n":"Mazda","t":"Clients","k":"MZD"},{"n":"Bitcoin.com","t":"Clients","k":"BCT"},{"n":"Fedex","t":"Clients","k":"FDX"},{"n":"Volvo Trucks","t":"Clients","k":"VLV"},{"n":"Opel","t":"Clients","k":"OP"},{"n":"DOLPHIN","t":"Clients","k":"DLP"},{"n":"YunYan","t":"Clients","k":"YNY"}],"p":[["UD: AR Filters",0,2020,[],0,0,[],0,0],["UD: Challenger Projects",0,2020,[2],1,0,[36],0,2],["UD: Leadership Summit 2021 [2020]",0,2020,[3,2],2,0,[16,33],0,2],["UD: Online Shop",0,2020,[0,4],3,1,[3,9],0,2],["UD: Sales Tool  -  Digital",0,2020,[2],4,1,[23],0,2],["UD: SNS Boost",0,2020,[4],5,1,[31],0,2],["UD: UDEMC 2020 / 21",0,2020,[3],6,0,[16,21],0,2],["UD: Website & App",0,2020,[4],7,1,[9],0,2],["UD : Hiroshima Video Shooting",0,2021,[2],8,0,[36],0,2],["UD : Yammer, Pickit",0,2021,[2],9,0,[23,36],0,2],["UD Hiroshima",0,2021,[2],10,0,[36],0,2],["UD Partner Conference 2022",0,2021,[3],11,1,[16],0,2],["UD: 2022 - UD Cold Region Test",0,2021,[2],12,1,[36],0,2],["UD: Ageo virtual Factory Tour",0,2021,[2],13,0,[36],0,2],["UD: ERM editing/subtitling",0,2021,[2],14,0,[36],0,2],["UD: Evolution of Studio #106",0,2021,[2],15,0,[33],0,2],["UD: HQ 106 Studio Upgrade 2021",0,2021,[2],16,0,[33],0,2],["UD: Leadership Summit 2021",0,2021,[3,2],17,0,[21,36],0,2],["UD: Leadership Summit 2021",0,2021,[3,2],18,0,[21,36],0,2],["UD: P9545 - New Quester & Croner Launch",0,2021,[5],19,1,[13],0,2],["UD: Quon & Quester Photography [New Visual Imagery 2021]",0,2021,[2],20,0,[23,36,27],0,2],["UD: SNS Content Creative",0,2021,[],21,0,[31],0,1],["UD: SNS Content Strategy & Planning",0,2021,[],22,1,[31],0,1],["UD: Studio 106 - Banner Options",0,2021,[0],23,0,[3],0,2],["UD: Studio 106 - Extra Furniture",0,2021,[0],24,0,[3],0,2],["UD: Studio Room #106",0,2021,[2],25,0,[33],0,2],["UD: UDT0086 : A - Ibaraki Kashima CC [Video]",0,2021,[2],26,0,[36],0,2],["UD: UDT0086 B - Ibaraki Kashima CC [Photography]",0,2021,[2],27,0,[27],0,2],["UD: Uptime Conference 2021",0,2021,[3],28,0,[16,21],0,2],["UD: White Impulse Video - Better Life in the extreme weather",0,2021,[2],29,0,[36],0,2],["Isuzu: CEO訓示 & VOIS Event",0,2022,[3],30,0,[21],0,2],["UD : UDEC Entrance Renewal",0,2022,[3],31,0,[16],0,2],["UD Ageo Marathon 2022",0,2022,[2],32,0,[36],0,2],["UD UPTIME Conference 2022 Edit",0,2022,[2],33,0,[36],0,2],["UD: HR Brand Video",0,2022,[2],34,0,[36],0,2],["UD: Human Resource",0,2022,[2],35,0,[36],0,2],["UD: New uniform rollout - communication",0,2022,[0],36,1,[3],0,2],["UD: Quon GW Project Wiki",0,2022,[2],37,1,[36],0,2],["UD: UDT0105 - P9254 Features Short animation",0,2022,[2],38,0,[1,23],0,2],["UD: 生産部門：Training Center構築",0,2022,[2],39,1,[36],0,2],["UDT0107:  Ageo [Photo] Model Candidate Proposal",0,2022,[2],40,0,[27],0,2],["[UDT00##] — NTT Ad : Meeting",0,2023,[2],41,1,[36],0,2],["E-Learning Video",0,2023,[2],42,1,[36],0,2],["UD Partner Conference 2023",0,2023,[3],43,1,[16],0,2],["UD: SNS Audit & Yearly Maintenance",0,2023,[4],44,1,[31],0,2],["UD: UD × Isuzu Event",0,2023,[3],45,0,[21],0,2],["UDT - Brand-Corporate Film 2024",0,2023,[2],46,0,[36],0,2],["[UDT0080] — 43, 44 Christmas & New Year SNS Assets",0,2024,[],47,0,[31],0,1],["UD : 2024 SNS Assets (x3)",0,2024,[],48,0,[31,3],1,1],["UD Running Photos & Videos",0,2024,[2],49,0,[23,36,27],1,2],["UD studio update 2024",0,2024,[2],50,0,[33],0,2],["[UDT0080] — 2025 Halloween & Christmas SNS Post",0,2025,[],51,0,[31],1,1],["[UDT0130] — Tractor Driver Contest",0,2025,[2],52,1,[36],0,2],["[UDT0131] — UD  Model Photoshoot",0,2025,[2],53,0,[27],0,2],["[UDT0133] SNS Truck Model Images",0,2025,[],54,0,[31,27],0,1],["[UDT0134] — UD 90 Year Anniversary Celebration",0,2025,[0,3],55,0,[3,16],0,2],["[UDT0135] — UD Hall of Fame Shooting",0,2025,[2],56,0,[27],0,2],["[UDT0136] — UD Woman Test Driving Day",0,2025,[3],57,0,[21],0,2],["[UDT0145] - UD SNS 2026-2027",0,2025,[],58,5,[31],1,1],["UD : Auditorium Update",0,2025,[3],59,0,[32],0,2],["[UDT00##] — Model Photoshooting",0,2026,[2],60,0,[27],0,2],["[UDT0137] — Gemba Challenge 2027",0,2026,[3],61,5,[16],0,2],["[UDT0138] — Model Photos in Ageo (UDEC)",0,2026,[],62,7,[27],0,1],["[UDT0139] — EMC 2026",0,2026,[],63,5,[],0,0],["[UDT0139] — UD EMC 2026 Asset Production",0,2026,[],64,7,[3],0,1],["[UDT0140] — Studio update 2026",0,2026,[],65,0,[33],0,1],["[UDT0141] — EMC Comm Kit Design",0,2026,[],66,7,[3],0,1],["[UDT0142] — UD Family Day Design Materials",0,2026,[],67,7,[16],0,1],["[UDT0144] — UD Safety Awareness Poster",0,2026,[],68,0,[],0,0],["[UDT0150] - SNS Short Videos (改善活動とカラクリ紹介ビデオ）",0,2026,[],69,5,[31,36],0,1],["[UDT0151] — 綾部 CC 津山CC ミックス (2-3min Highlight Video)",0,2026,[],70,5,[36],0,1],["[ISZ0003] — Isuzu Studio Building",1,2023,[2],0,0,[33],1,2],["[ISZ0009] — IHSP 15th anniversaries - Tacloban 2nd Tripn",1,2023,[2],1,0,[36],1,2],["Confidential - ISUZU [Tacloban & Manila] Video Shooting",1,2023,[2],2,0,[36],1,2],["Isuzu Fuji Mountain Activity Video [いすゞ森作り活動]",1,2023,[2],3,0,[36],1,2],["ISUZU TOWN いすゞタウンウェブサイト",1,2023,[4],4,1,[9],0,2],["[ISZ0011] — Minami COO interview shoot",1,2024,[2],5,0,[36],1,2],["[ISZ0013] — Isuzu IT section TH 2024 spring",1,2024,[3],6,0,[21],1,2],["[ISZ0018] — Innovation Hour 2024",1,2024,[3],7,0,[21],1,2],["[ISZ0019] — Gemba Poster",1,2024,[0],8,1,[3],0,2],["[ISZ0020] — VOIS 2024",1,2024,[3],9,0,[21],1,2],["Innovation Hour Video Edit",1,2024,[2],10,0,[36],0,2],["Isuzu: Isuzu Plaza & Fujisawa Factory Video & Photo",1,2024,[2],11,0,[36],1,2],["ISZ0012 - Isuzu Spring Traffic Safety Fest",1,2024,[2],12,0,[36],1,2],["ISZ0015 - Isuzu Kai (いすゞ会) Party Banner & Message Card",1,2024,[0],13,0,[3],1,2],["[ISZ00##] — Boardmember Still photo",1,2025,[2],14,0,[27],0,2],["[ISZ0023] — Genuine Parts Video - 海外向け補修専用部品 - プロモーション動画",1,2025,[2],15,2,[36],1,2],["[ISZ0024] — 自動運転標識車ビデオ　(北海道）",1,2025,[2],16,0,[36],0,2],["[ISZ0026] — XI UPDATE",1,2025,[3,2],17,0,[21,36],1,2],["[ISZ0027] — Isuzu AI event (2025 June)",1,2025,[3,2],18,0,[21,36],1,2],["[ISZ0029] — Isuzu Studio Building",1,2025,[2],19,2,[33],0,2],["[ISZ0030] — VOIS 2025 Autumn",1,2025,[3,2],20,0,[21,36],1,2],["[ISZ0031] — Isuzu AI Contest Vol.2 (Internal)",1,2025,[3,2],21,0,[21,36],1,2],["[ISZ0032] — JMS2025 - Kids Mechanic Photos",1,2025,[2],22,0,[27],1,2],["[ISZ0033] — Chairman Katayama Photo/Video shoot for  JMS",1,2025,[2],23,0,[36],1,2],["[ISZ0034] — VOIS energizer video edit",1,2025,[2],24,0,[36],0,2],["[ISZ0040] — Isuzu Anime Demo YF x  Loops",1,2025,[2],25,5,[1],0,2],["LT: [ISZ0022] —  Sustainability Workshop Promotion Movie",1,2025,[2],26,0,[36],1,2],["ReO: [ISZ0025] —  Mobile Wall Paper Design",1,2025,[0],27,0,[3],1,2],["[ISZ0036] — Code of Conduct (行動規範動向) Video",1,2026,[],28,7,[36],0,1],["[ISZ0039] —CEO Message video - add subtitles",1,2026,[],29,0,[36],0,1],["[ISZ0041] — Isuzu CEO Live Stream",1,2026,[],30,7,[21],0,1],["[ISZ0042] — Isuzu CEO100 days video",1,2026,[],31,5,[36],0,1],["[ISZ0043] —  Board Member Portrait photos",1,2026,[],32,7,[27],0,1],["[ISZ0043] — 役員Portrait撮影 2026 June",1,2026,[],33,5,[27],0,1],["[ISZ0045]  役員Portrait撮影 2026 August",1,2026,[],34,5,[27],0,1],["[ISZ0046] — VOIS 2026 (October 13th)",1,2026,[],35,5,[],0,0],["[GRM0000] — Account",2,2022,[6],0,0,[0],0,2],["GRM: Brand Materials Localisation",2,2022,[0],1,0,[3],0,2],["GRM: Brochure",2,2022,[0],2,0,[3],0,2],["GRM: GW Campaign",2,2022,[5],3,0,[14,13],0,2],["GRM: Hybrid Leaders Event",2,2022,[3],4,1,[16],0,2],["GRM: JMEC Testimonial video production",2,2022,[2],5,0,[36],0,2],["GRM: New Life Campaign",2,2022,[5],6,0,[14],0,2],["GRM: Official Website Content Localisation",2,2022,[1],7,0,[6],0,2],["GRM: SMB (Re-Open) Campaign",2,2022,[5],8,0,[14],0,2],["GRM: The Top Line",2,2022,[5,6],9,0,[14,0],0,2],["[GRM0001] — New Life 2022",2,2023,[5],10,0,[14,13],0,2],["[GRM0002] — Golden Week 2022",2,2023,[5],11,0,[14],0,2],["[GRM0003] — 3 Videos Localization Re-Edit",2,2023,[2],12,0,[36],0,2],["[GRM0004] — Copy Translations Projects",2,2023,[5],13,0,[13],0,2],["[GRM0005] — GB features manual for admins (Snippets & StyleGuides )",2,2023,[0],14,0,[3],0,2],["[GRM0006] — Security FAQ PDF",2,2023,[1],15,0,[2,6],0,2],["[GRM0007] — E-Brochure - Evergreen",2,2023,[5],16,0,[13],0,2],["[GRM0008] — JMEC @ American Club Testimonial",2,2023,[2],17,0,[36],0,2],["[GRM0009] — Rakuten Banner",2,2023,[5],18,0,[13],0,2],["[GRM0010] — Grammarly Premium User Interviews",2,2023,[2],19,0,[36],0,2],["[GRM0011A] — Japanese Customer Testimonial (Youhei)",2,2023,[2],20,0,[36],0,2],["[GRM0011B] — Japanese Customer Testimonial (Simon)",2,2023,[2],21,0,[36],0,2],["[GRM0012] — Small and Medium Business 2022",2,2023,[5],22,0,[13],0,2],["[GRM0012X] — Small and Medium Business 2022 LP",2,2023,[5],23,0,[13],0,2],["[GRM0013] — Japanese Landing page",2,2023,[5],24,0,[13],0,2],["[GRM0014] — New Professional - NP 2022",2,2023,[5],25,0,[13],0,2],["[GRM0015] — SMB Testimonial @ HAKUBA ( Sayaka )",2,2023,[2],26,0,[36],0,2],["[GRM0016] — Video Translations [ Sayaka ]",2,2023,[1],27,0,[6],0,2],["[GRM0017] — Grammarly Business video editing",2,2023,[2],28,0,[36],0,2],["[GRM0018］— Influencer Research",2,2023,[7],29,0,[22],0,2],["[GRM0019] — Pay gate Video",2,2023,[2],30,0,[36],0,2],["[GRM0021] — Fundraiser Video",2,2023,[2],31,0,[36],0,2],["[GRM0022] — Webinar",2,2023,[2],32,0,[36],0,2],["[GRM0024] — New Professional - NP 2023",2,2023,[5],33,0,[13],0,2],["[GRM0025] — Rakuten Englishnization Posters",2,2023,[1],34,0,[6],0,2],["Grammarly: Demand Generation",2,2023,[5],35,0,[14],0,2],["[TDK0001] — Supplier Sustainability Summit (SSS) [Virtual/Live]",3,2024,[3],0,0,[21],1,2],["[TDK0002] — Transformation In Action / Leadership Kick-off Meeting",3,2024,[3],1,0,[21],0,2],["TDK - Studio Building",3,2024,[2],2,2,[33],0,2],["[TDK0003] — IWD(International Woman’s Day) Video Edit",3,2025,[2],3,0,[36],1,2],["[TDK0004] — IWD JP Seminar Event 3/4",3,2025,[3],4,0,[21],1,2],["[TDK0005] — IWD week Seminar 2 - 0307 YTC",3,2025,[3],5,0,[21],1,2],["[TDK0008] — TDK Fit : Video, KV & Logo",3,2025,[2],6,0,[36],0,2],["[TDK0008] — TDK Fit Challenge Design",3,2025,[2,0],7,0,[23,3],1,2],["[TDK0009] — World Athletics Championships Tokyo 2025",3,2025,[2],8,0,[36],0,2],["[TDK0010] — TDK 1st Townhall Meeting",3,2025,[3],9,0,[21],1,2],["[TDK0011] — TDKFit x WAC Short Videos",3,2025,[2],10,0,[36],0,2],["[TDK0014] — Cafe Canteen Branding",3,2025,[4],11,1,[9],0,2],["[TDK0016] — CEO Saito-san Message [Porsche]",3,2025,[2],12,0,[36],0,2],["[TDK0017] — 第2回 Town Hall Meeting",3,2025,[3],13,0,[21],0,2],["[TDK0018] —TDK90 Design and video content related to the anniversary",3,2025,[2],14,7,[36],0,2],["[TDK0023] — Tsumura event",3,2025,[3],15,1,[16],0,2],["TDK [Journalism] YF Brand History: TDK",3,2025,[4],16,0,[31],0,2],["[TDK00##] — TDK Corporate Portrait Edit",3,2026,[],17,7,[36,27],0,1],["[TDK0020] — 2026 Kick-off meeting",3,2026,[3],18,7,[21],1,2],["[TDK0021] — IWD week 2026",3,2026,[3],19,0,[21],1,2],["[TDK0022] — TDK united Q3 THM",3,2026,[3],20,0,[21],1,2],["[TDK0024] — SSS  Event",3,2026,[3],21,0,[21],0,2],["[TDK0025] — ECBC（電子事業部品） : TH 2026",3,2026,[],22,0,[],0,0],["[TDK0027] — 2026 Pride Month Sticker",3,2026,[],23,0,[],0,0],["[TDK0029] — TDK Launch Engine CEO Video",3,2026,[],24,5,[36],0,1],["[TDK0030] —  TDK United Town Hall 2026 - Q1",3,2026,[],25,5,[],0,0],["[YF0009] — YF R&D",4,2025,[6],0,3,[34],0,2],["YF — Internships",4,2025,[6],1,3,[34],0,2],["YF — New Business",4,2025,[7],2,3,[30],0,2],["YF — Operations",4,2025,[6],3,3,[18],0,2],["[YF00##] — AG TEST",4,2026,[],4,0,[],0,0],["[YF00##] — AG TEST 2",4,2026,[],5,0,[],0,0],["[YF00##] — Brano’s Landing Page",4,2026,[],6,4,[20],1,1],["[YF00##] — Framer, Magnific and Wise comm",4,2026,[],7,6,[],0,0],["[YF00##] — NDA x Freelancer",4,2026,[],8,0,[],0,0],["[YF00##] — Notion Ops Workflow Launch",4,2026,[],9,3,[],0,0],["[YF00##] — Polina Tokyo Boot Camp",4,2026,[],10,0,[],0,0],["[YF00##] — Search Japanese Intern orgs",4,2026,[],11,4,[],0,0],["[YF00##] — Xpel Visualizer: How to Video",4,2026,[],12,0,[36],0,1],["[YF00##] — YF AI Social Post Strategy",4,2026,[],13,3,[31],0,1],["[YF00##] — YF Design System",4,2026,[],14,3,[7],0,1],["[YF00##] — YF Socials",4,2026,[],15,3,[31],0,1],["[YF00##] — YF Tokens of Excellence — Token Posts Production",4,2026,[],16,3,[],0,0],["[YF00##] Website Milestone 2",4,2026,[],17,3,[9],1,1],["YF — Business Model",4,2026,[],18,8,[],0,0],["YF — Portfolio & Showcases",4,2026,[],19,3,[9],0,1],["YF — Website",4,2026,[],20,3,[9],0,1],["[CUR0001] — JP CULTURE & ALIGNEMENT",5,2023,[5],0,0,[14],1,2],["[CUR001A] — JP  Workshop #1",5,2023,[0],1,0,[10],1,2],["[CUR00A] — Knowledge & Research INTERNAL",5,2023,[7],2,0,[22],1,2],["[CUR00B] — Brand - Japan",5,2023,[1],3,0,[6],1,2],["[CUR00C] — Brand - Global",5,2023,[1,0],4,0,[2,5,6,10],1,2],["[ I ] JP Workshop #1 PRE-SURVEY",5,2024,[7,0],5,0,[22,10],1,2],["[ II ] JP Workshop #1 NURTURING EMAILS",5,2024,[0],6,0,[10],1,2],["[CUR000] — CURAPROX ACCOUNT INTAKE",5,2024,[6],7,0,[0],0,2],["[CUR0002] — Consumer Brand Inside Research in Japan",5,2024,[1],8,0,[17],1,2],["[CUR0003] — Japan - Campaign",5,2024,[5],9,0,[14],1,2],["[CUR0010] — JP Workshop 1 — [ Highlight Video ]",5,2024,[2],10,0,[36],0,2],["[CUR001B] — JP Workshop #2",5,2024,[0],11,0,[10],0,2],["[CUR002C] — JP BRAND Campaign",5,2024,[1],12,0,[6],1,2],["[CUR00A1A] — JP Workshop #1 Pre-Production",5,2024,[0],13,0,[10],1,2],["[CUR00A1B]  — JP Workshop #1 Production [D] day",5,2024,[0],14,0,[10],1,2],["[CUR00A1C]  — JP Workshop #1 Post - Production",5,2024,[2],15,0,[36],1,2],["[CURAPROX] — Maintain Client Portal",5,2024,[6],16,0,[0],0,2],["Campaign Planning",5,2024,[5],17,0,[14],1,2],["Curaprox: Spec Work - Success First",5,2024,[6],18,1,[0],0,2],["Cake Client: Gypsy",6,2023,[0],0,0,[29],0,2],["Cyclo Event (SK, JP)",6,2024,[3],1,1,[16],0,2],["[CTS00##] — Cake Campaign 3 is a team Landing page",6,2025,[4],2,0,[20],0,2],["[CTS0001] — Cake Infrastructure",6,2025,[4],3,0,[37],0,2],["[CTS0003] — Cake Product Development",6,2025,[0],4,2,[29],0,2],["[CTS0004] — Cake Website",6,2025,[4],5,2,[9],0,2],["[CTS0005] — Cake Social - Fall 2025",6,2025,[5],6,2,[14],0,2],["[CTS0006] — Cake Campaign - Summer 2025 ( 3 is a Team )",6,2025,[5],7,0,[13],0,2],["[CTS0007] — Cake Business Fix",6,2025,[7],8,2,[11],0,2],["[CTS0008] — Cake Crowdfunding",6,2025,[5],9,2,[14],0,2],["[CTS0009] — Cake Social",6,2025,[],10,2,[31],1,1],["[CTS0011] — Cake Price Modeling",6,2025,[1],11,2,[17],0,2],["[CTS0012] — Cake B2B Proposition Modeling",6,2025,[7],12,2,[26],0,2],["[CTS0015] — Cake Buddy - AI Assistant",6,2025,[0],13,2,[3],1,2],["[CTS0020] — CUSTOM JERSEY",6,2025,[0],14,2,[29],0,2],["[GYPSY Crowdfunding] Round 2 - campaign",6,2025,[5],15,0,[14,13],0,2],["[CTS00##] — Cake jersey design 2026",6,2026,[],16,2,[],0,0],["[CTS00##] — CAKE Sport event support",6,2026,[],17,8,[],0,0],["[XPL0002] — XPEL Event [XDC2025]",7,2025,[3],0,0,[16],1,2],["[XPL0003] — XPEL App – v1 ( XDC EDITION )",7,2025,[4],1,0,[15],1,2],["[XPL0004] — T-shirts",7,2025,[0],2,0,[3],1,2],["[XPL0004] — XPEL App – v2 Post XDC Enhance",7,2025,[4],3,2,[15],1,2],["[XPL0005] — XPEL Website (SEO)",7,2025,[4],4,2,[9],0,2],["[XPL0006] — Social Campaign",7,2025,[5],5,2,[14,13],0,2],["[XPL0007] — XPEL Brochure Design",7,2025,[0],6,1,[3],0,2],["[XPL0008] — XPEL Campaign",7,2025,[5],7,2,[14,13],0,2],["[XPL00##] — XPEL How To Video",7,2026,[],8,0,[36],1,1],["[XPL0009] — XDC 2026",7,2026,[],9,5,[16],0,1],["[XPL0010] — XPEL Video",7,2026,[],10,2,[36],0,1],["SmaMo Video",8,2020,[2],0,0,[36],0,2],["[PRS00##] — SCJP 2021 Video Production",8,2021,[2],1,1,[36],0,2],["[PRS0006] — SMC2021",8,2021,[3,2],2,0,[21,36],0,2],["Porsche: SMC2022",8,2022,[3,2],3,1,[16,27],0,2],["[PRS0005] — Cayenne Promotional Video Asset Creation 2023",8,2023,[2],4,0,[36],0,2],["[PRS0009] Halloween",8,2023,[2],5,0,[36],1,2],["Hoodie",8,2023,[0],6,1,[3],0,2],["PEC Promotion Video Proposal",8,2023,[2],7,1,[36],1,2],["Roof tent marketing creative",8,2023,[2],8,1,[36],1,2],["[PRS00##] — Porsche PEC Video [Pitch]",8,2025,[2],9,1,[36],0,2],["[KK0001] Website [2024]",9,2024,[4],0,0,[37],1,2],["[KK0003] — KK Profesional Photo Proposal",9,2024,[2],1,1,[27],0,2],["[KK0000] — [KK0000] Account",9,2025,[7],2,2,[12],0,2],["[KK0001] — KK Package",9,2025,[0],3,1,[29],1,2],["[KK0002] Research",9,2025,[1],4,0,[25],1,2],["[KK0004] — KK Social [2025]",9,2025,[4],5,1,[31],1,2],["[KK0005] — KK Website [2025]",9,2025,[4],6,0,[37],0,2],["[KK0006] — KK Instagram Management",9,2025,[4],7,1,[31],1,2],["[KK0010] — KK  Fulfilment",9,2026,[6],8,2,[18],0,2],["MangaProduction: Movie Premiere event",10,2021,[2],0,0,[36],0,2],["MangaProduction: Voxpop x 10",10,2021,[2],1,0,[36],0,2],["Manga Productions : Akihabara Event",10,2023,[3,2],2,0,[21,36],0,2],["[MGP0019] — Asateer 2 Movie Premier",10,2024,[2],3,1,[36],1,2],["Manga Productions Graduation Videos",10,2024,[2],4,0,[36],0,2],["Manga Osaka Expo Video shooting [Lead Project : 見積り詳細]",10,2025,[2],5,1,[36],0,2],["[MGP0010] — Anime Japan 2026",10,2026,[],6,0,[16],0,1],["[MGP0011] — Manga in Cannes",10,2026,[],7,6,[16],0,1],["[LUX0001] LUX Pavilion - Big Campaign",11,2025,[5,4],0,0,[14,31],0,2],["[LUX0002] — Better communication of Lux Pavilion EXPO",11,2025,[0,1],1,0,[3,25],0,2],["[LUX0003] — LUX Pavilion + GEI 3 Diversity Act Videos",11,2025,[0,2],2,0,[3,36],1,2],["[LUX0004]  — LUX Pavilion - Art Activation",11,2025,[0,1],3,1,[3,17],0,2],["[LUX0005] — LUX Pavilion - Comm Report",11,2025,[4],4,0,[31],1,2],["[LUX0006] — LUX Pavilion - Family Activation",11,2025,[4,2],5,0,[31,36],0,2],["[LUX0007] — LUX Pavilion - APP Activation",11,2025,[4,2],6,0,[31,36],1,2],["[LUX00##] — Luxembourg Yokohama 2027",11,2026,[],7,6,[],0,0],["WOW Food: Vision, Corporate Branding & Strategy",12,2021,[0],0,1,[8],0,2],["WOW Food: Grape Flavour Beverage",12,2022,[0],1,1,[29],0,2],["WOW Food: Homepage renew project",12,2022,[4],2,1,[9],0,2],["WOW Food: Kombucha Beauty Club",12,2022,[0],3,0,[3],0,2],["WOW Food: Landing Page",12,2022,[4],4,1,[9],0,2],["WOW Food: Whole Fruits Landing Page Project",12,2022,[4],5,1,[9],0,2],["[W0010] — Wow “Natural Garden Latte”",12,2026,[],6,6,[],0,0],["[MRN00001] — Localized Website ( Global to JP )",13,2023,[4],0,0,[9],0,2],["[MRN0002] — Sales support materials",13,2023,[0],1,1,[3],0,2],["[MRN0003] — Local case study/communication",13,2023,[1],2,0,[6],0,2],["[MRN0004] — Brand recognition campaign",13,2023,[5],3,1,[14],0,2],["[MRN0005] — 2023 - DIA Japan",13,2023,[3],4,1,[35],0,2],["[MRN0006] — Website Workshop",13,2023,[4],5,1,[9],0,2],["[MRN00##] — [MRN0000] Account",13,2025,[1],6,2,[17],0,2],["[VSG0004] JIHYE - Collaboration (YF & ViaSage)",14,2024,[7],0,0,[26],0,2],["[VIA005] — Viasage Corporate Brand pack",14,2025,[0],1,0,[3],0,2],["[VSG0001] — 7/7 Team Building Workshop",14,2025,[6],2,0,[18],0,2],["[VSG0002] — Via Sage Website",14,2025,[4],3,0,[9],0,2],["[VSG0003] Via Sage Website & Content",14,2025,[4],4,0,[9],1,2],["[VSG0005] — HR Workshop Juliana Pechar",14,2025,[2,0],5,0,[23,10],0,2],["AXA Streaming TH Event",15,2022,[3],0,0,[16],0,2],["AXA: 2024 Kickoff Event - YF Agency",15,2023,[3],1,1,[16],0,2],["AXA: YF (Work in Process)",15,2023,[3],2,1,[16],0,2],["AXA: YF (Work in Process)",15,2023,[3],3,1,[16],0,2],["2025 AXA Kickoff Event",15,2024,[3],4,1,[16],0,2],["Clenergy: Interview in Germany",16,2021,[3],0,1,[35],0,2],["Clenergy: Master Brochure",16,2021,[0],1,0,[3],0,2],["Clenergy: PV Expo 2021 Photoshoot",16,2021,[2],2,1,[27],0,2],["Clenergy: PV Expo Booth",16,2021,[3],3,0,[35],0,2],["Clenergy: PV Expo Video",16,2021,[3],4,0,[35],0,2],["Belize??",17,2025,[],0,1,[],0,0],["EXPO UCG video to all countries",17,2025,[],1,1,[36,16],0,1],["Osaka Expo 2025 - Pop Up [Pixelfed]",17,2025,[3],2,1,[28],0,2],["Slovak Social & PR",17,2025,[4],3,1,[31],0,2],["Mitsubishi: Strategy & Planning",18,2021,[3],0,0,[16],0,2],["YF x Mitsubishi Chemical",18,2021,[0,3],1,0,[3,16,21],0,2],["MCG: New Brand Launch Ceremony Event",18,2022,[3],2,0,[16],0,2],["The MCG Market-Centric Explainer Video",18,2022,[3],3,0,[16],0,2],["[BSL001] — Baseload: Okuhida Onsen",19,2021,[2],0,0,[36],0,2],["[BSL002] — Baseload: Kyushu",19,2021,[2],1,0,[36],0,2],["[BSL003] — Baseload: Company Japan",19,2021,[2],2,0,[36],0,2],["[BSL004] — Baseload : Sansui / Shika Shooting",19,2022,[2],3,0,[36],0,2],["[ESR0001] — Business In Japan Workshop",20,2024,[0],0,0,[10],0,2],["[SVK0001] — Meeting room update proposal",20,2024,[],1,0,[],0,0],["[ESR0001] — Japanese market PPT March 10th Workshop",20,2025,[0],2,0,[10],0,2],["[IMM00##] — Quarry-On Production",21,2023,[0],0,0,[29],0,2],["[IMM0002] — iQos Maker Research",21,2023,[0],1,1,[29],0,2],["[IMM0000] — Imminent Account & Intake",21,2025,[6],2,1,[0],0,2],["Soudesune Pivot",22,2021,[0],0,1,[5],0,2],["[SDSN0004] Salaryman Culture Ware",22,2024,[0],1,2,[29],0,2],["[SDSN0002] — New SOUDESUNE Collections",22,2025,[0],2,8,[29],1,2],["[SCA0001] — CEO Interview Video",23,2024,[2],0,0,[36],1,2],["[SCN0002] — Christmas and New year greeting video",23,2025,[],1,0,[36,3],1,1],["[SCN0003] — Scania team of technicians video",23,2026,[2],2,7,[36],1,2],["ACREDO Video Proposal",24,2024,[2],0,1,[36],1,2],["Jesus : Animation Film [Poster Creative]",24,2024,[0],1,1,[3],0,2],["JESUS : Animation Film [Poster Creative]",24,2024,[0],2,0,[3],1,2],["PGD Conference 2024",25,2024,[3],0,1,[16],1,2],["Photographer for PGD",25,2024,[2],1,1,[27],0,2],["[PIX0001] — Train Station Game & Beyond",26,2024,[1],0,2,[2],0,2],["[PIX0002] — Truck Game by Pixelfederation",26,2025,[3],1,2,[32],0,2],["BS: beStream app - UX/UI",27,2021,[4],0,0,[15],0,2],["BS: beStream- Splash Screen Animation",27,2021,[4],1,0,[15],0,2],["[SMG00##] — Activate Standard Mag in Japan",28,2025,[1],0,1,[17],0,2],["The Kickstart",28,2025,[1],1,1,[17],0,2],["Cardano in Japan",29,2021,[5],0,1,[13],0,2],["Tokyo Cardano Summit Vol. 1",29,2022,[5],1,1,[13],0,2],["[UND0001] — Uniden × 日本ハムフェア 2025",30,2025,[3],0,0,[35],0,2],["[UND0002] — 60th History video",30,2026,[0],1,0,[3],0,2],["[NYH0001] Hairsalon Recruit Promo Video",31,2025,[2],0,2,[36],0,2],["[NYH0002] Bridal Promo Video",31,2025,[2],1,0,[36],1,2],["Mojo",32,2024,[4],0,1,[37],1,2],["[MJO00##] — Mojo Proposal",32,2025,[4],1,1,[31],0,2],["Kika: Nature’s Protection",33,2020,[1],0,1,[17],0,2],["[KIKA00##] — Go to Market Strategy",33,2025,[7],1,1,[12],0,2],["[CD0001] — Find the  JP accounting firm & individual for CD",34,2025,[7],0,2,[26],0,2],["[CD0002] — Propose the colab with CD",34,2025,[7],1,2,[26],0,2],["Access Japan Estate",35,2023,[1],0,0,[17],0,2],["[AJE00##] — Access Website",35,2025,[4],1,1,[9],0,2],["[BNT0001] — Digital Bentobox",36,2026,[4],0,2,[15],0,2],["[BNT0002] — BentoBox Proposal",36,2026,[],1,2,[],0,0],["[PPM0001] TOKYO BRAND TRIP",37,2026,[],0,1,[],0,0],["Market Immersion",37,2026,[],1,0,[],0,0],["BAT: glo Hyper + / Lucky Strike",38,2021,[5],0,1,[14],0,2],["Project Template",38,2024,[5],1,1,[13],0,2],["Oase: biOrb in Japan",39,2020,[3],0,0,[28],0,2],["Oase: biOrb & Oase Website",39,2021,[4],1,1,[9],0,2],["[ASH0001] — Townhall",40,2026,[],0,5,[],0,0],["[ASH0002] — GSLM",40,2026,[],1,5,[],0,0],["[URT00##] — Urtopia: Market Entry",41,2023,[1],0,1,[17],0,2],["[URT0001] —  GO-TO-MARKET Proposal",41,2023,[7,1],1,0,[12,19,17],0,2],["Xenera: [2 Months] Mixed Reality",42,2021,[2],0,0,[23],0,2],["Xenera: [NEW] Mixed Reality",42,2021,[2],1,0,[23],0,2],["[ISH0001] — AR Social Media Content",43,2021,[2,0],0,0,[23,3],0,2],["Ishitomo: AR Filter",43,2021,[],1,0,[],0,0],["[EGG0005] — Frescobol - Shoot",44,2020,[2],0,0,[36],0,2],["EW: JPアイデア",44,2021,[7],1,1,[12],0,2],["[BIN0001] — XD Lab Video",45,2022,[2],0,0,[36],0,2],["[BIN0002] — XD Lab Workshop",45,2022,[2],1,0,[36],0,2],["Tier 4 - Video Project Assessment [Confidential]",46,2021,[2],0,1,[36],0,2],["Tier 4: - 5+1 Video - 2D & 3DCG Project Assessment [Confidential]",46,2021,[2],1,1,[23],0,2],["JYT: Simply Piano App Promo Video",47,2022,[2],0,1,[36],0,2],["Zing: Web-based AR",48,2024,[2],0,1,[23],0,2],["[N10001] — NIHONICHI",49,2024,[4],0,3,[9],0,2],["[CZP0001] — Czech Pavilion",50,2024,[7],0,7,[26],0,2],["[VCH0001] — HK CNY 3D Anamorphic",51,2024,[2],0,1,[23],0,2],["Lunarossa Y’ppi",52,2024,[4],0,1,[37],0,2],["[TRM0001] — SNS Contents & Marketing Promotion",53,2025,[4],0,1,[31],1,2],["Belenka to Asia",54,2025,[1],0,1,[17],0,2],["YF x Central Pacific Bank",55,2021,[1],0,1,[17],0,2],["Trade Mission to Saudi Arabia – Film & Video Production",56,2025,[7],0,1,[26],0,2],["[00##] — Ziplus Blog Website Development",57,2025,[4],0,1,[9],0,2],["Slovak Pavilion Content",58,2025,[],0,1,[],1,0],["Nijo Kyoto Hotel: Production Bible",59,2020,[2],0,0,[36],0,2],["Spark: Digital Summit 2025",60,2025,[3],0,1,[16],0,2],["[DYK0001] — ダイヤ工業株式会社 - Photography",61,2025,[2],0,1,[27],0,2],["[IBJ0001] — IBJ - Main Content",62,2025,[],0,3,[],0,0],["[ATR0001] — Domain Transfer",63,2025,[4],0,0,[9],0,2],["[AMP00##] — Pitch Amplus",64,2025,[2],0,1,[36],0,2],["[AST00##] — Georgia MBA Students",65,2025,[7],0,0,[26],0,2],["[OD00##] — On Digital Proposal",66,2025,[3],0,1,[35],0,2],["[00##] — Sodiaal Brochure",67,2025,[0],0,1,[3],0,2],["[MLM00##] — Mele Mele Proposal",68,2025,[4],0,1,[31],0,2],["[&co0000] — YF Legacy Partnership  Fix",69,2025,[7],0,2,[26],0,2],["[SDL00##] — Niigata Shoot",70,2025,[],0,0,[27],0,1],["[YDS0001] — YDISTRI in JAPAN",71,2025,[1],0,2,[17],0,2],["[LIB0001] — Libra Website",72,2025,[4],0,1,[9],0,2],["YF x IBM",73,2021,[],0,1,[],0,0],["iQuest: Website Strategy/Creative",74,2020,[0,4],0,0,[4,9],0,2],["[00##] — YF x MIRUS",75,2021,[2],0,1,[36],0,2],["[00##] — Partnering INK x YF",76,2023,[5],0,1,[14],0,2],["[KYR00##] — Kyara Development",77,2026,[0],0,8,[29],0,2],["[ABS00##] — Miami Ohio Tokyo Visit",78,2026,[7],0,0,[26],0,2],["[UR0001] — UR training videos",79,2026,[],0,1,[36],0,1],["[GEM0001] — Gems World",80,2026,[],0,4,[],0,0],["[BRN0000] —Bornan Proposal",81,2026,[],0,6,[],0,0],["[0001] — Zajo Japan",82,2026,[],0,6,[],0,0],["[FJT0001] — Fujitaka: Go Brand",83,2021,[7],0,1,[12],0,2],["CATALYST / CARDANO",84,2022,[5],0,1,[13],0,2],["[BRB0001] - BRABUS Lights",85,2022,[1],0,0,[19],0,2],["[00##] — Zero - One Webpage",86,2023,[4],0,1,[9],0,2],["[VER0002] — Verizon PR Shoot",87,2022,[2],0,0,[36],0,2],["YF x BUS 4x4",88,2021,[2],0,1,[36],0,2],["Ecoloupe: Service Growth",89,2021,[7],0,1,[12],0,2],["KEY: The Mograph recreate and adjust",90,2022,[2],0,0,[24],0,2],["[YF0030] — Erik Sille | YF Original Video",91,2020,[2],0,0,[36],0,1],["[DLG0001] — Bentley Magazine (Stills & Video)",92,2023,[2],0,0,[36,27],1,2],["[00##] — YF x Nikon Lenswear",93,2021,[2],0,1,[36],0,2],["[00##] — Mazda",94,2024,[2],0,1,[36],0,2],["[00##] — Bitcoin.com",95,2021,[5],0,1,[14],0,2],["[00##] — FEDEX: Photography",96,2020,[2],0,1,[27],0,2],["VOIS editing project",97,2022,[2],0,0,[36],0,2],["YF x Opel",98,2021,[1],0,1,[17],0,2],["Dolphin yearly",99,2024,[4],0,1,[9],0,2],["[YNY0001] YunYan: Animation / Movie Scroll Opener",100,2020,[2,0],0,0,[23,1,3],0,2]]};
 
 const SOL = [
   ['Brand','#FF4A1C'],['Crossborder','#FF3D9A'],['Content','#E8E5DC'],['Event','#D8FF3E'],
-  ['Digital','#2FE3E3'],['Campaign','#3B62FF'],['Operation','#FFB020'],['Business','#A78BFA']
+  ['Digital','#2FE3E3'],['Campaign','#3B62FF'],['Operation','#FFB020']
 ];
-const TYPES = [['Clients','#F3F0E9'],['Ventures','#A78BFA'],['Partner','#2FE3E3'],['Internal','#FFB020']];
+/* Seven, not eight. Notion carries a "Business" bucket — Partnership, Market
+   Research, Business Strategy, Proposition Design — that isn't in the canonical
+   stack, so it folds into Operation. */
+const BUSINESS = 7, OPERATION = 6;
 
-const C = DATA.c.map(o => ({ name:o.n, type:o.t, status:o.s }));                                  // clients, deepest first
-const P = DATA.p.map(([title, ci, year, sols, depth], i) => ({
-  i, title, ci, year, sols, depth,
-  client: C[ci].name, ctype: C[ci].type,
-  accent: sols.length ? SOL[sols[0]][1] : 'rgba(243,240,233,.34)'
+/* Everyone is a partner; some are ventures. Clients / Partner / Internal all
+   read as Partner — that's the positioning, not a shortcut. */
+const TYPES = [['Partner','#F3F0E9'],['Venture','#A78BFA']];
+
+const STATUS = DATA.st;
+/* Tactics come from the Webflow collection, joined to the real Notion project
+   relations: 352 projects carry them outright. 42 more were inferred from
+   titles that name the deliverable outright — "SNS", "Shoot", "Livestream".
+   35 were deliberately left blank: a proposal, a market immersion, a jersey
+   design. No tactic beats a wrong one. */
+const TAC = DATA.tl;   // [name, solutionIndex | -1]
+const TACSRC = ['none','inferred','notion'];
+const C = DATA.c.map(o => ({                       // deepest first
+  name: o.n,
+  code: o.k,
+  type: o.t === 'Ventures' ? 'Venture' : 'Partner',
+  source: o.t                                      // original Notion type, kept for reference
 }));
+const P = DATA.p.map(([title, ci, year, sols, depth, st, tacs, dated, tsrc], i) => {
+  const s = [...new Set(sols.map(x => x === BUSINESS ? OPERATION : x))].sort((a, b) => a - b);
+  return { i, title, ci, year, sols:s, depth,
+    status: STATUS[st] || '', tacs, tsrc: TACSRC[tsrc], dated: !!dated,
+    client: C[ci].name, ctype: C[ci].type,
+    accent: s.length ? SOL[s[0]][1] : 'rgba(243,240,233,.34)' };
+});
 
 // per-client rollups
 C.forEach((c, i) => {
@@ -192,6 +372,7 @@ C.forEach((c, i) => {
   c.y0 = Math.min(...list.map(p => p.year));
   c.y1 = Math.max(...list.map(p => p.year));
   c.doms = [...new Set(list.flatMap(p => p.sols))];
+  c.ang = (i * 0.6180339887498949) % 1;      // golden angle: deep spokes spread apart
 });
 const MAXN = C[0].count;
 const YEARS = [...new Set(P.map(p => p.year))].sort();
@@ -209,22 +390,48 @@ function timePos(p){
   const r = R0 + (R1 - R0) * t;
   return [CX + Math.cos(a) * r, CY + Math.sin(a) * r * 0.95];
 }
-// DEPTH: one spoke per client, radius = Nth engagement
-const STEP = (R1 - R0) / MAXN;
+/* DEPTH: one spoke per partner, radius = Nth engagement.
+
+   Two corrections over the naive version. Radius was linear, so with UD Trucks
+   at 71 and most partners at 1–3, everything but the top handful collapsed into
+   a dot at the centre — hence the small, unimpressive read. A power curve gives
+   the shallow end far more room while the deepest arm still reaches the rim.
+
+   And angle was the depth rank itself, so the four longest spokes sat next to
+   each other and left the rest of the circle empty. Golden-angle placement
+   scatters them evenly, which is what makes it read as a starburst. */
+const DEPTH_POW = 0.46, PHI = 0.6180339887498949;
 function depthPos(p){
-  const a = (p.ci / C.length) * Math.PI * 2 - Math.PI / 2;
-  const r = R0 + p.depth * STEP;
-  return [CX + Math.cos(a) * r, CY + Math.sin(a) * r * 0.95];
+  const c = C[p.ci];
+  const a = c.ang * Math.PI * 2 - Math.PI / 2;
+  const r = R0 + (R1 - R0) * Math.pow((p.depth + 1) / MAXN, DEPTH_POW);
+  return [CX + Math.cos(a) * r, CY + Math.sin(a) * r];
 }
 P.forEach(p => { const t = timePos(p), d = depthPos(p);
   p.tx = t[0]; p.ty = t[1]; p.dx = d[0]; p.dy = d[1]; p.x = t[0]; p.y = t[1]; });
 
-/* ---------- state ---------- */
-let mode = 'time', upto = Y1, fSol = null, fType = null, focus = null, pinned = null, mix = 0;
+/* =========================================================================
+   STATE — the reveal is continuous over ENGAGEMENT INDEX, not year.
+
+   Stepping a year at a time meant 22 dots landing at once. Instead `prog` is a
+   float across the 428 chronological positions, and each dot's own opacity is
+   simply clamp(prog − its index). So one unit of progress = one dot fading in
+   over its own little window, and the field populates continuously however you
+   drive it — wheel, slider, or the Compound animation.
+
+   `prog` eases toward `progTarget`, so chunky wheel events can't stutter it.
+   ========================================================================= */
+const N = P.length;
+let mode = 'time', fSol = null, fType = null, focus = null, pinned = null, mix = 0;
+let prog = 0, progTarget = 0, lastT = performance.now(), raf = null, tweenTo = null;
+
+const filt  = p => (fSol === null || p.sols.includes(fSol)) && (!fType || p.ctype === fType);
+const alpha = p => Math.max(0, Math.min(1, prog - p.k));
 
 const sv = document.getElementById('sv');
 const tip = document.getElementById('tip');
 const stage = document.getElementById('stage');
+const hint = document.getElementById('hint');
 const NS = 'http://www.w3.org/2000/svg';
 const mk = (t, a) => { const e = document.createElementNS(NS, t);
   for (const k in a) e.setAttribute(k, a[k]); return e; };
@@ -262,33 +469,43 @@ P.forEach(p => { p.el = mk('circle', { r: p.sols.length > 1 ? 4 : 3.1, fill: p.a
 /* =========================================================================
    RENDER
    ========================================================================= */
-function visible(p){
-  if (mode === 'time' && p.year > upto) return false;
-  if (fSol !== null && !p.sols.includes(fSol)) return false;
-  if (fType && p.ctype !== fType) return false;
-  return true;
-}
+const visible = p => filt(p) && alpha(p) > 0.002;
+
 function render(){
   P.forEach(p => {
     p.x = p.tx + (p.dx - p.tx) * mix;
     p.y = p.ty + (p.dy - p.ty) * mix;
-    const vis = visible(p);
+    const a = filt(p) ? alpha(p) : 0;
     const hot = !focus || p.client === focus;
     p.el.setAttribute('cx', p.x.toFixed(1));
     p.el.setAttribute('cy', p.y.toFixed(1));
-    p.el.style.opacity = !vis ? 0 : (hot ? .95 : (focus ? .06 : .16));
+    // its own fade window, times the focus dimming
+    p.el.style.opacity = (a * (hot ? .95 : (focus ? .06 : .16))).toFixed(3);
   });
 
   C.forEach(c => {
     if (!c.path) return;
-    const pts = c.list.filter(visible).sort((a, b) => a.depth - b.depth);
+    /* Threads grow with the reveal: fully-revealed points are drawn as-is, and
+       the one currently fading in is interpolated from the previous point — so
+       the line extends smoothly instead of jumping a whole segment per dot. */
+    const seq = c.list.filter(filt).sort((x, y) => x.k - y.k);
+    const pts = [];
+    for (const p of seq){
+      const a = alpha(p);
+      if (a <= 0.002) break;                      // chronological, so nothing later is visible
+      if (a >= 1) pts.push([p.x, p.y]);
+      else if (pts.length){
+        const q = pts[pts.length - 1];
+        pts.push([q[0] + (p.x - q[0]) * a, q[1] + (p.y - q[1]) * a]);
+      }
+    }
     if (pts.length < 2){ c.path.setAttribute('d',''); return; }
-    let d = `M${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
     for (let k = 1; k < pts.length; k++){
       const a = pts[k-1], b = pts[k];
-      const mx = (a.x + b.x) / 2 + (b.y - a.y) * 0.1;
-      const my = (a.y + b.y) / 2 - (b.x - a.x) * 0.1;
-      d += ` Q${mx.toFixed(1)} ${my.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+      const mx = (a[0] + b[0]) / 2 + (b[1] - a[1]) * 0.1;
+      const my = (a[1] + b[1]) / 2 - (b[0] - a[0]) * 0.1;
+      d += ` Q${mx.toFixed(1)} ${my.toFixed(1)} ${b[0].toFixed(1)} ${b[1].toFixed(1)}`;
     }
     c.path.setAttribute('d', d);
     const on = focus === c.name;
@@ -311,11 +528,100 @@ function render(){
       <i>of the work is with a client already on the books</i></div>`;
 
   document.querySelectorAll('.cli').forEach(b => b.classList.toggle('on', b.dataset.c === focus));
-  document.querySelectorAll('#legend .lg').forEach(b =>
+  document.querySelectorAll('#legend .ch').forEach(b =>
     b.classList.toggle('on', +b.dataset.s === fSol));
   document.querySelectorAll('#types .lg').forEach(b =>
     b.classList.toggle('on', b.dataset.t === fType));
+
+  buildFilterState();
+  if (listOn) buildList();
 }
+
+/* ---------- what's active, and how to drop it ---------- */
+function buildFilterState(){
+  const el = document.getElementById('fstate');
+  const bits = [];
+  if (fSol !== null) bits.push(['sol', SOL[fSol][0], SOL[fSol][1]]);
+  if (fType) bits.push(['type', fType, fType === 'Venture' ? '#A78BFA' : '#F3F0E9']);
+  if (pinned) bits.push(['client', pinned, '#F3F0E9']);
+  if (!bits.length){
+    el.innerHTML = `<em>All ${P.length} engagements ╱ ${C.length} partners</em>`;
+    return;
+  }
+  const n = P.filter(visible).length;
+  el.innerHTML = `<em>Showing</em>` + bits.map(([k, label, col]) =>
+    `<button class="fchip" data-drop="${k}" style="--fc:${col}">${label}<i>×</i></button>`).join('') +
+    `<span class="fcount">${n} of ${P.length}</span>`;
+  el.querySelectorAll('.fchip').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.drop;
+    if (k === 'sol') fSol = null;
+    if (k === 'type') fType = null;
+    if (k === 'client'){ pinned = null; focus = null; pinnedP = null; showEmpty(); }
+    render();
+  }));
+}
+
+/* =========================================================================
+   LIST VIEW
+   The same 428 engagements, ranked by depth of relationship rather than date,
+   so it argues the same thing the spiral does. Each client is a native
+   <details> — open it and you get every project title, real text, real links,
+   keyboard-reachable and crawlable. A spiral can't be the only work index for
+   a site that needs to be found.
+   ========================================================================= */
+let listOn = false;
+const listEl = document.getElementById('listview');
+
+function buildList(){
+  const rows = C.map(c => ({ c, pts: c.list.filter(visible) }))
+               .filter(r => r.pts.length)
+               .sort((a, b) => b.pts.length - a.pts.length ||
+                               a.c.name.localeCompare(b.c.name));
+  if (!rows.length){
+    listEl.innerHTML = `<p class="lempty">Nothing matches that filter.</p>`;
+    return;
+  }
+  const span = Math.max(1, Y1 - Y0);
+  listEl.innerHTML =
+    `<div class="lhead"><span>Relationship</span><span>Depth</span><span>${Y0} → ${Y1}</span></div>` +
+    rows.map(({ c, pts }) => {
+      // spread same-year points inside their band so a dense year still reads
+      const perYear = {};
+      pts.forEach(p => (perYear[p.year] = perYear[p.year] || []).push(p));
+      const dots = pts.map(p => {
+        const bucket = perYear[p.year], n = bucket.indexOf(p);
+        const frac = (p.year - Y0 + (n + 0.5) / bucket.length) / (span + 1);
+        return `<i style="left:${(frac * 100).toFixed(2)}%;background:${p.accent}"
+                   title="${p.title.replace(/"/g,'&quot;')} — ${p.year}"></i>`;
+      }).join('');
+      return `<details class="lrow">
+        <summary>
+          <span class="lname">${c.name}${c.type === 'Ventures'
+            ? '<span class="vtag">venture</span>' : ''}</span>
+          <span class="lnum">${String(pts.length).padStart(2,'0')} ╱ ${c.y1 - c.y0 + 1}y</span>
+          <span class="ltl"><span class="axis"></span>${dots}</span>
+        </summary>
+        <div class="lkids">${pts.slice().sort((a,b) => a.year - b.year)
+          .map(p => `<a href="#" data-p="${p.i}"><span>${p.year}</span>${p.title}</a>`).join('')}</div>
+      </details>`;
+    }).join('');
+}
+
+/* list rows pin the same record the dots do */
+listEl.addEventListener('click', e => {
+  const a = e.target.closest('a[data-p]');
+  if (!a) return;
+  e.preventDefault();
+  pinProject(P[+a.dataset.p]);
+});
+
+document.getElementById('toggle').addEventListener('click', e => {
+  listOn = !listOn;
+  listEl.classList.toggle('on', listOn);
+  e.currentTarget.classList.toggle('on', listOn);
+  e.currentTarget.textContent = listOn ? 'Spiral' : 'List';
+  if (listOn){ tip.classList.remove('on'); buildList(); }
+});
 
 /* ---------- left rail: relationships ---------- */
 document.getElementById('cliCount').textContent = C.length + ' total';
@@ -336,20 +642,27 @@ document.querySelectorAll('.cli').forEach(b => {
 });
 
 /* ---------- filters ---------- */
+/* each channel carries its own count, so the strip is a distribution too */
+const solCount = SOL.map((_, i) => P.filter(p => p.sols.includes(i)).length);
 document.getElementById('legend').innerHTML = SOL.map(([n, col], i) =>
-  `<button class="lg" data-s="${i}" style="--c:${col}"><s style="background:${col}"></s>${n}</button>`).join('');
-document.querySelectorAll('#legend .lg').forEach(b => b.addEventListener('click', () => {
+  `<button class="ch" data-s="${i}" style="--c:${col}" title="${n} — ${solCount[i]} engagements">
+     <i></i><b><span>${n}</span><u>${solCount[i]}</u></b></button>`).join('');
+document.querySelectorAll('#legend .ch').forEach(b => b.addEventListener('click', () => {
   fSol = fSol === +b.dataset.s ? null : +b.dataset.s; render(); }));
 
-document.getElementById('types').innerHTML =
-  `<span style="font-size:9px;letter-spacing:.17em;text-transform:uppercase;color:rgba(243,240,233,.28)">Type</span>` +
-  TYPES.map(([n, col]) =>
-  `<button class="lg" data-t="${n}" style="--c:${col}"><s style="background:${col}"></s>${n}</button>`).join('');
+document.getElementById('types').innerHTML = `<span class="glab">Type</span>` +
+  TYPES.map(([n, col]) => {
+    const k = P.filter(p => p.ctype === n).length;
+    return `<button class="lg" data-t="${n}" style="--c:${col}">
+      <s style="background:${col}"></s>${n} <u style="text-decoration:none;opacity:.55;
+      font-family:'JetBrains Mono',monospace;font-size:8.5px">${k}</u></button>`;
+  }).join('');
 document.querySelectorAll('#types .lg').forEach(b => b.addEventListener('click', () => {
   fType = fType === b.dataset.t ? null : b.dataset.t; render(); }));
 
 /* ---------- nearest-point picking (428 dots: one listener, not 428) ---------- */
-sv.addEventListener('pointermove', e => {
+let hoverP = null;
+function nearest(e){
   const m = sv.getScreenCTM().inverse();
   const pt = sv.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
   const l = pt.matrixTransform(m);
@@ -359,34 +672,118 @@ sv.addEventListener('pointermove', e => {
     const dx = p.x - l.x, dy = p.y - l.y, d = dx*dx + dy*dy;
     if (d < bd){ bd = d; best = p; }
   }
-  if (!best){ tip.classList.remove('on'); if (!pinned && focus){ focus = null; render(); } return; }
+  return best;
+}
+
+sv.addEventListener('pointermove', e => {
+  const best = nearest(e);
+  hoverP = best;
+  if (!best){
+    tip.classList.remove('on');
+    if (!pinned && focus){ focus = null; render(); }
+    if (!pinnedP) showEmpty();
+    return;
+  }
   const s = sv.getScreenCTM(), o = sv.createSVGPoint(); o.x = best.x; o.y = best.y;
   const scr = o.matrixTransform(s), sr = stage.getBoundingClientRect();
   tip.style.left = (scr.x - sr.left) + 'px';
   tip.style.top  = (scr.y - sr.top) + 'px';
   tip.innerHTML = `<b>${best.title}</b><i>${best.client} ╱ ${best.year} ╱ #${best.depth + 1} of ${C[best.ci].count}</i>`;
   tip.classList.add('on');
-  showProject(best);
+  if (!pinnedP) showProject(best, false);              // a pinned record wins over hover
   if (!pinned && focus !== best.client){ focus = best.client; render(); }
 });
-sv.addEventListener('pointerleave', () => { tip.classList.remove('on');
-  if (!pinned){ focus = null; render(); } });
+sv.addEventListener('pointerleave', () => {
+  tip.classList.remove('on'); hoverP = null;
+  if (!pinned){ focus = null; render(); }
+  if (!pinnedP) showEmpty();
+});
 
-/* ---------- right rail ---------- */
+/* click a dot → pin the record */
+sv.addEventListener('click', e => {
+  const p = nearest(e) || hoverP;
+  if (!p){ pinnedP = null; pinned = null; focus = null; showEmpty(); render(); return; }
+  pinProject(p);
+});
+
+function pinProject(p){
+  pinnedP = p;
+  pinned = p.client;
+  focus = p.client;
+  showProject(p, true);
+  render();
+}
+
+/* =========================================================================
+   THE RECORD
+   Hovering previews; clicking pins. Pinned, it becomes the full project record
+   straight off the Notion row — so the same panel serves a visitor reading a
+   case and the studio auditing its own book. The data-gap flags at the bottom
+   are for the second audience: 75 projects carry no solution tag and 347 have
+   no real deadline, and the only way that gets fixed is if it's visible.
+   ========================================================================= */
 const detail = document.getElementById('detail');
-function showProject(p){
+let pinnedP = null;
+
+const STATUS_TONE = {
+  'Completed':'#D8FF3E','On Track':'#2FE3E3','Ready to invoice':'#A78BFA',
+  'Pitch':'#FFB020','To Plan':'#FFB020','On Hold':'#FF4A1C','At Risk':'#FF4A1C',
+  'Icebox':'rgba(243,240,233,.45)','Graveyard':'rgba(243,240,233,.3)','Internal':'#3B62FF'
+};
+
+function showEmpty(){
+  detail.innerHTML = `<p class="d-empty">Move across the field to read an engagement.
+    Click one to pin its record.</p>`;
+}
+
+function row(k, v){
+  return `<div class="rec"><span>${k}</span><b>${v}</b></div>`;
+}
+
+function showProject(p, pin){
   const c = C[p.ci];
   detail.style.setProperty('--ac', p.accent);
+  const tone = STATUS_TONE[p.status] || 'rgba(243,240,233,.5)';
+  const gaps = [];
+  if (!p.sols.length) gaps.push('no solution tagged');
+  if (!p.dated) gaps.push('no delivery date — year inferred from record creation');
+  if (p.tsrc === 'none') gaps.push('no tactics — title too ambiguous to infer');
+  else if (p.tsrc === 'inferred') gaps.push('tactics inferred from the title, not tagged in Notion');
+
   detail.innerHTML = `
     <span class="d-rule"></span>
-    <div class="d-kind">${p.client} ${c.type === 'Ventures' ? '<span class="vtag">venture</span>' : ''} &nbsp;╱&nbsp; ${p.year}</div>
+    <div class="d-kind">${p.client}${c.type === 'Venture'
+      ? '<span class="vtag">venture</span>' : ''} &nbsp;╱&nbsp; ${p.year}</div>
     <div class="d-title">${p.title}</div>
     <div class="d-meta">${p.sols.length
-      ? p.sols.map(s => `<span class="chip">${SOL[s][0]}</span>`).join('')
-      : '<span class="chip">no solution tagged</span>'}</div>
+      ? p.sols.map(s => `<span class="chip" style="border-color:${SOL[s][1]}55;color:${SOL[s][1]}">${SOL[s][0]}</span>`).join('')
+      : '<span class="chip">untagged</span>'}</div>
+    ${pin ? `
+    ${p.tacs.length ? `<div class="tacs">
+      <em>Tactics <span class="src">${p.tsrc === 'notion' ? 'tagged' : 'inferred'}</span></em>
+      ${p.tacs.map(t => { const [name, si] = TAC[t];
+        const col = si >= 0 && si < SOL.length ? SOL[si][1] : 'rgba(243,240,233,.4)';
+        return `<span class="tac" style="--tc:${col}">${name}</span>`; }).join('')}
+    </div>` : ''}
+    <div class="recs">
+      ${row('Status', `<span style="color:${tone}">${p.status || '—'}</span>`)}
+      ${row('Year', `${p.year} <span class="src">${p.dated ? 'delivery' : 'record'}</span>`)}
+      ${row('Partner', `${c.name}${c.code ? ' · ' + c.code : ''}`)}
+      ${row('Type', c.type + (c.source && c.source !== c.type ? ` <span class="src">${c.source}</span>` : ''))}
+      ${row('Sequence', `#${p.depth + 1} of ${c.count}`)}
+      ${row('Solutions', p.sols.length ? p.sols.length + ' of 7' : '0 of 7')}
+      ${row('Tactics', p.tacs.length || '—')}
+    </div>
+    ${gaps.length ? `<div class="gaps"><em>Gaps</em>${gaps.map(g => `<span>${g}</span>`).join('')}</div>` : ''}
+    <button class="unpin" id="unpin">Clear record</button>` : ''}
     ${c.count > 1 ? `<div class="d-arc">Engagement <b>${p.depth + 1}</b> of <b>${c.count}</b> with
       <b>${c.name}</b> — ${c.y0}–${c.y1}, across <b>${c.doms.length}</b>
       ${c.doms.length === 1 ? 'solution' : 'solutions'}.</div>` : ''}`;
+
+  const u = document.getElementById('unpin');
+  if (u) u.addEventListener('click', () => {
+    pinnedP = null; pinned = null; focus = null; showEmpty(); render();
+  });
 }
 function showClient(c){
   detail.style.setProperty('--ac', c.doms.length ? SOL[c.doms[0]][1] : '#F3F0E9');
@@ -400,48 +797,115 @@ function showClient(c){
       `<div><span class="y">${p.year}</span><span>${p.title}</span></div>`).join('')}</div>`;
 }
 
-/* ---------- mode tween ---------- */
+/* =========================================================================
+   THE LOOP
+   One rAF that eases `prog` toward `progTarget` and runs the mode tween, then
+   stops itself once everything has settled. Frame-rate independent, so a wheel
+   flick lands the same on any display.
+   ========================================================================= */
+const scrub = document.getElementById('scrub');
+const yrTo = document.getElementById('yrTo');
+const CAVEAT = {
+  time:'Radius = chronological position. Only 81 of 429 projects carry a real deadline, so year is mostly the date the record was created — the order is sound, the exact years are not.',
+  depth:'Radius = Nth engagement with that client. One spoke per relationship, length = depth. Immune to the date problem.'
+};
+
+function kick(){ if (!raf) raf = requestAnimationFrame(loop); }
+
+function loop(now){
+  raf = null;
+  const dt = Math.min(64, Math.max(1, now - lastT)); lastT = now;
+  let busy = false;
+
+  if (Math.abs(progTarget - prog) > 0.02){
+    prog += (progTarget - prog) * (1 - Math.exp(-dt / 130));
+    busy = true;
+  } else prog = progTarget;
+
+  if (tweenTo !== null){
+    const to = tweenTo;
+    if (Math.abs(to - mix) > 0.002){ mix += (to - mix) * (1 - Math.exp(-dt / 220)); busy = true; }
+    else { mix = to; tweenTo = null; }
+  }
+
+  syncScrub();
+  render();
+  if (busy) kick();
+}
+
+function syncScrub(){
+  scrub.value = prog;
+  const at = chrono[Math.max(0, Math.min(N - 1, Math.round(prog) - 1))];
+  yrTo.textContent = prog < 1 ? '—' : at.year;
+}
+
+function setProg(v, instant){
+  progTarget = Math.max(0, Math.min(N, v));
+  if (instant) prog = progTarget;
+  hint.classList.add('gone');
+  kick();
+}
+
+/* ---------- mode ---------- */
 function setMode(m){
   if (mode === m) return;
   mode = m;
   document.getElementById('mTime').classList.toggle('on', m === 'time');
   document.getElementById('mDepth').classList.toggle('on', m === 'depth');
-  document.getElementById('caveat').innerHTML = m === 'time'
-    ? 'Radius = chronological position. Only 81 of 429 projects carry a real deadline, so year is mostly the date the record was created — the order is sound, the exact years are not.'
-    : 'Radius = Nth engagement with that client. One spoke per relationship, length = depth. Immune to the date problem.';
-  const from = mix, to = m === 'depth' ? 1 : 0, t0 = performance.now();
-  (function step(now){
-    const t = Math.min(1, (now - t0) / 950);
-    const e = t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3) / 2;
-    mix = from + (to - from) * e;
-    render();
-    if (t < 1) requestAnimationFrame(step);
-  })(t0);
+  document.getElementById('caveat').innerHTML = CAVEAT[m];
+  tweenTo = m === 'depth' ? 1 : 0;
+  kick();
 }
 document.getElementById('mTime').addEventListener('click', () => setMode('time'));
 document.getElementById('mDepth').addEventListener('click', () => setMode('depth'));
 
-/* ---------- year scrub ---------- */
-const scrub = document.getElementById('scrub');
-scrub.min = Y0; scrub.max = Y1; scrub.value = Y1;
-scrub.addEventListener('input', () => {
-  upto = +scrub.value; document.getElementById('yrTo').textContent = upto;
-  if (mode !== 'time') setMode('time');
-  render();
-});
+/* ---------- slider drives progress directly ---------- */
+scrub.min = 0; scrub.max = N; scrub.step = 1; scrub.value = 0;
+scrub.addEventListener('input', () => setProg(+scrub.value));
+
+/* ---------- the wheel is the timeline ----------
+   Scrolling anywhere over the field advances the reveal. Roughly thirty
+   notches to cross all 428, and it eases, so a trackpad's fine grain and a
+   mouse wheel's coarse steps both come out smooth. */
+stage.addEventListener('wheel', e => {
+  if (listOn) return;                     // in list view the wheel belongs to the list
+  e.preventDefault();
+  const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  setProg(progTarget + Math.max(-220, Math.min(220, d)) * 0.14);
+}, { passive:false });
+
+/* ---------- Compound: the same reveal, driven for you ---------- */
+let playing = null;
 document.getElementById('play').addEventListener('click', () => {
+  if (playing){ clearInterval(playing); playing = null; }
   setMode('time');
-  let y = Y0;
-  const tick = () => {
-    upto = y; scrub.value = y; document.getElementById('yrTo').textContent = y;
-    render();
-    if (y++ < Y1) setTimeout(tick, 620);
-  };
-  tick();
+  prog = 0; progTarget = 0; hint.classList.add('gone');
+  const t0 = performance.now(), DUR = 6000;
+  playing = setInterval(() => {
+    const t = Math.min(1, (performance.now() - t0) / DUR);
+    progTarget = t * N; prog = progTarget;     // drive directly for an even sweep
+    kick();
+    if (t >= 1){ clearInterval(playing); playing = null; }
+  }, 16);
 });
 
-document.getElementById('caveat').innerHTML =
-  'Radius = chronological position. Only 81 of 429 projects carry a real deadline, so year is mostly the date the record was created — the order is sound, the exact years are not.';
+/* ---------- go ---------- */
+/* ---------- the bar measures itself ----------
+   Hard-coding a bar height guarantees it will be wrong at some viewport — the
+   channel labels wrap, the state line grows. So the real height is read back
+   from the element and fed to --barH, which drives the field, the list padding
+   and the prompt's centring. */
+const controlsEl = document.querySelector('.controls');
+function fitBar(){
+  const h = Math.ceil(controlsEl.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--barH', h + 'px');
+}
+addEventListener('resize', () => { fitBar(); render(); });
+if (window.ResizeObserver) new ResizeObserver(fitBar).observe(controlsEl);
+
+document.getElementById('caveat').innerHTML = CAVEAT.time;
+fitBar();
+syncScrub();
 render();
 </script>
 </body>
